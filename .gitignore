@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# whatsapp-web.js auth
+.wwebjs_auth/
+
+# local secrets (fb cookies / chrome profile)
+.secrets/

@@ -1,0 +1,56 @@
+[
+  {
+    "name": "The Pet Vet",
+    "district": "灣仔區",
+    "address": "1/F, 5 Luard Rd, Wan Chai",
+    "metadata": {
+      "phone": "2111 1319",
+      "rating": 5,
+      "website": "https://www.thepetvet.com.hk/",
+      "raw_query": "veterinary clinic Wan Chai Hong Kong",
+      "booking_url": "",
+      "review_count": null,
+      "google_maps_url": "https://www.google.com/maps/place/The+Pet+Vet/data=!4m7!3m6!1s0x340401eef7b60071:0x4f3d4de7fe4c9f6e!8m2!3d22.2769196!4d114.171385!16s%2Fg%2F11w8f8m50h!19sChIJcQC29-4BBDQRbp9M_udNPU8?authuser=0&hl=en&rclk=1",
+      "google_place_id": "ChIJcQC29-4BBDQRbp9M_udNPU8",
+      "is_24h_emergency": false,
+      "pet_types_supported": [],
+      "specialist_services": []
+    }
+  },
+  {
+    "name": "Wanchai Animal Hospital",
+    "district": "灣仔區",
+    "address": "G/F and Basement, Wing Shing Mansion, 7 Cross Ln, Wan Chai",
+    "metadata": {
+      "phone": "2572 5422",
+      "rating": 4.3,
+      "website": "http://www.hongkongvet.com/",
+      "raw_query": "veterinary clinic Wan Chai Hong Kong",
+      "booking_url": "",
+      "review_count": null,
+      "google_maps_url": "https://www.google.com/maps/place/Wanchai+Animal+Hospital/data=!4m7!3m6!1s0x3404005b1b57ab2d:0x5be7a424f473cd31!8m2!3d22.2765149!4d114.1762486!16s%2Fg%2F1tdsgcn2!19sChIJLatXG1sABDQRMc1z9CSk51s?authuser=0&hl=en&rclk=1",
+      "google_place_id": "ChIJLatXG1sABDQRMc1z9CSk51s",
+      "is_24h_emergency": false,
+      "pet_types_supported": [],
+      "specialist_services": []
+    }
+  },
+  {
+    "name": "Phoenix Animal Clinic",
+    "district": "灣仔區",
+    "address": "Wan Chai, Sun St, 2號號地下",
+    "metadata": {
+      "phone": "2865 4320",
+      "rating": 4.3,
+      "website": "http://home.netfront.net/~easie/index.htm",
+      "raw_query": "veterinary clinic Wan Chai Hong Kong",
+      "booking_url": "",
+      "review_count": null,
+      "google_maps_url": "https://www.google.com/maps/place/Phoenix+Animal+Clinic/data=!4m7!3m6!1s0x3404005cfeaceb9f:0xdae1e4af4d342469!8m2!3d22.276536!4d114.168548!16s%2Fg%2F11bv1x9gjf!19sChIJn-us_lwABDQRaSQ0Ta_k4do?authuser=0&hl=en&rclk=1",
+      "google_place_id": "ChIJn-us_lwABDQRaSQ0Ta_k4do",
+      "is_24h_emergency": false,
+      "pet_types_supported": [],
+      "specialist_services": []
+    }
+  }
+]

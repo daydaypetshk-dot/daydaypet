@@ -1,8 +1,13 @@
+@config "../../tailwind.config.js";
 @import "tailwindcss";
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --font-geist-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Arial, "Noto Sans", "PingFang TC",
+    "Microsoft JhengHei", sans-serif;
+  --font-geist-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New",
+    monospace;
 }
 
 @theme inline {
@@ -23,4 +28,63 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+.dp-div-icon {
+  background: transparent;
+  border: none;
+}
+
+.dp-marker {
+  position: relative;
+  width: 45px;
+  height: 45px;
+  border-radius: 9999px;
+  overflow: hidden;
+  background: #ffffff;
+  border: 3px solid #ef4444;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dp-marker-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 9999px;
+  object-fit: cover;
+  display: block;
+}
+
+.dp-marker-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  line-height: 1;
+  color: #0f172a;
+}
+
+.dp-marker-red {
+  border-color: #ef4444;
+}
+
+.dp-marker-blue {
+  border-color: #3b82f6;
+}
+
+.dp-marker-green {
+  border-color: #22c55e;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }

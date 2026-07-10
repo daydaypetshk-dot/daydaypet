@@ -1,0 +1,100 @@
+{
+  "district": "中西區",
+  "keyword": "寵物公園",
+  "query": "dog park Central and Western District Hong Kong",
+  "mode": "park",
+  "queriesTried": [
+    "寵物公園 Central and Western District Hong Kong",
+    "寵物公園 Central and Western District 香港",
+    "dog park Central and Western District Hong Kong",
+    "dog park Central and Western District 香港",
+    "pet park Central and Western District Hong Kong",
+    "pet park Central and Western District 香港",
+    "pet garden Central and Western District Hong Kong",
+    "pet garden Central and Western District 香港",
+    "dog garden Central and Western District Hong Kong",
+    "dog garden Central and Western District 香港",
+    "狗公園 Central and Western District Hong Kong",
+    "狗公園 Central and Western District 香港",
+    "寵物共享公園 Central and Western District Hong Kong",
+    "寵物共享公園 Central and Western District 香港"
+  ],
+  "candidates": 8,
+  "validPlaces": 8,
+  "imported": 8,
+  "failures": [],
+  "languageWarnings": [
+    {
+      "type": "language",
+      "title": "Cadogan Street Temporary Garden Dog Park",
+      "address": "堅尼地城西市街",
+      "reason": "Language Missing",
+      "google_place_id": "ChIJQ2oxWZf_AzQRaYaO8ja-L6U"
+    },
+    {
+      "type": "language",
+      "title": "Wanchai Harbour Pet Garden",
+      "address": "灣仔港灣道",
+      "reason": "Language Missing",
+      "google_place_id": "ChIJ-b2KIQABBDQR-aqVuPR3AUg"
+    }
+  ],
+  "importedRows": [
+    {
+      "id": "a1f7b0f8-3efb-4b21-b4ea-f808a3526b91",
+      "name": "Cadogan Street Temporary Garden Dog Park",
+      "address": "堅尼地城西市街",
+      "status": "pending",
+      "source": "scraper_google_maps"
+    },
+    {
+      "id": "36520acb-cebd-406a-8550-43fe60536cdf",
+      "name": "寵物公園",
+      "address": "中環",
+      "status": "pending",
+      "source": "scraper_google_maps"
+    },
+    {
+      "id": "3bdae86d-ec27-4e55-aa39-1653633f9110",
+      "name": "屋蘭士街休憩處",
+      "address": "半山屋蘭士街",
+      "status": "pending",
+      "source": "scraper_google_maps"
+    },
+    {
+      "id": "77a0ef3c-0abe-45f7-8616-64d506ccd58b",
+      "name": "Wanchai Harbour Pet Garden",
+      "address": "灣仔港灣道",
+      "status": "pending",
+      "source": "scraper_google_maps"
+    },
+    {
+      "id": "f112e4bc-0b4e-4acf-a9a0-cb967d182396",
+      "name": "中西區海濱長廊－上環段",
+      "address": "上環中港道",
+      "status": "pending",
+      "source": "scraper_google_maps"
+    },
+    {
+      "id": "42718fff-d461-4049-96e0-b90edf7e769e",
+      "name": "加多近街花園",
+      "address": "西環",
+      "status": "pending",
+      "source": "scraper_google_maps"
+    },
+    {
+      "id": "e13d9240-69bc-42ad-880f-cc8226dbe49e",
+      "name": "中西區海濱長廊 - 中環段",
+      "address": "中環龍和道",
+      "status": "pending",
+      "source": "scraper_google_maps"
+    },
+    {
+      "id": "6af83bc2-6be6-456b-bdf6-3a999dbdc584",
+      "name": "堅道花園",
+      "address": "半山堅道144號",
+      "status": "pending",
+      "source": "scraper_google_maps"
+    }
+  ]
+}

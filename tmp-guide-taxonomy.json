@@ -1,0 +1,222 @@
+{
+  "cats": [
+    {
+      "id": "4ef6e147-bad6-43f3-9fde-106bad463ca7",
+      "name": "獸醫",
+      "icon": "🩺",
+      "sort_order": 1
+    },
+    {
+      "id": "3d6fd0b8-4423-4c96-8087-0273a9b8d13c",
+      "name": "寵物公園",
+      "icon": "🌳",
+      "sort_order": 2
+    },
+    {
+      "id": "9995e502-7f8e-48bd-8b05-44eb6d57f700",
+      "name": "寵物店",
+      "icon": "🛒",
+      "sort_order": 3
+    },
+    {
+      "id": "0532f190-57dc-461d-b0ef-3e78ede772ef",
+      "name": "寵物美容",
+      "icon": "✂️",
+      "sort_order": 4
+    },
+    {
+      "id": "9b51e6d5-628c-4b2b-88dd-38e5661e2813",
+      "name": "寵物善終",
+      "icon": "🌈",
+      "sort_order": 5
+    },
+    {
+      "id": "170724ce-f0e2-4520-908e-c0947cdfc9bf",
+      "name": "寵物訓練",
+      "icon": "🎓",
+      "sort_order": 6
+    },
+    {
+      "id": "67ce4780-48b7-4612-a95b-0a4a679a2637",
+      "name": "寵物餐廳",
+      "icon": "🍴",
+      "sort_order": 7
+    }
+  ],
+  "subs": [
+    {
+      "id": "d8ef707f-2c68-4ce2-a975-c17ea1e04a9c",
+      "category_id": "4ef6e147-bad6-43f3-9fde-106bad463ca7",
+      "name": "24小時急症",
+      "sort_order": 1
+    },
+    {
+      "id": "6493b160-4cfd-43a2-b4da-362b406a8475",
+      "category_id": "0532f190-57dc-461d-b0ef-3e78ede772ef",
+      "name": "貓隻免麻醉美容",
+      "sort_order": 1
+    },
+    {
+      "id": "ab2b904a-8abf-447e-b09a-565f5ba5a706",
+      "category_id": "9995e502-7f8e-48bd-8b05-44eb6d57f700",
+      "name": "貓狗糧/用品",
+      "sort_order": 1
+    },
+    {
+      "id": "c864db14-1d72-42b9-b82f-d8a4844622a9",
+      "category_id": "170724ce-f0e2-4520-908e-c0947cdfc9bf",
+      "name": "幼犬社交",
+      "sort_order": 1
+    },
+    {
+      "id": "dacf5977-f67f-4648-9644-b4a14a152a61",
+      "category_id": "9b51e6d5-628c-4b2b-88dd-38e5661e2813",
+      "name": "24小時接送",
+      "sort_order": 1
+    },
+    {
+      "id": "e7c7120e-135b-46ea-a88e-1cfa62ac26bc",
+      "category_id": "3d6fd0b8-4423-4c96-8087-0273a9b8d13c",
+      "name": "寵物共享公園",
+      "sort_order": 1
+    },
+    {
+      "id": "7f4a4932-3dad-4936-8353-71d6032e4e9d",
+      "category_id": "67ce4780-48b7-4612-a95b-0a4a679a2637",
+      "name": "室內可入座",
+      "sort_order": 1
+    },
+    {
+      "id": "19fd2d0c-d2e0-4edd-89ca-efebbc8c01ba",
+      "category_id": "0532f190-57dc-461d-b0ef-3e78ede772ef",
+      "name": "上門美容",
+      "sort_order": 2
+    },
+    {
+      "id": "18cd82c8-5bf3-45cf-94cf-dd9e5b45c3fe",
+      "category_id": "4ef6e147-bad6-43f3-9fde-106bad463ca7",
+      "name": "珍禽異獸",
+      "sort_order": 2
+    },
+    {
+      "id": "4740ffed-1f0f-43e5-a704-14feb53ee020",
+      "category_id": "3d6fd0b8-4423-4c96-8087-0273a9b8d13c",
+      "name": "專用狗公園",
+      "sort_order": 2
+    },
+    {
+      "id": "419f3343-2970-4f88-ab1f-5bbe689ab083",
+      "category_id": "9995e502-7f8e-48bd-8b05-44eb6d57f700",
+      "name": "凍乾/生肉專門店",
+      "sort_order": 2
+    },
+    {
+      "id": "42023848-b94f-4b42-bc17-6a9dc262c3f3",
+      "category_id": "9b51e6d5-628c-4b2b-88dd-38e5661e2813",
+      "name": "獨立火化",
+      "sort_order": 2
+    },
+    {
+      "id": "a1bf9ef7-c449-4731-8020-ca1f83e02128",
+      "category_id": "170724ce-f0e2-4520-908e-c0947cdfc9bf",
+      "name": "行為糾正",
+      "sort_order": 2
+    },
+    {
+      "id": "85b3e952-5e7b-4f71-a4d7-8a3a95044cfc",
+      "category_id": "67ce4780-48b7-4612-a95b-0a4a679a2637",
+      "name": "只限戶外露天",
+      "sort_order": 2
+    },
+    {
+      "id": "e7568df0-5ee3-41a5-8386-139110c32ff9",
+      "category_id": "0532f190-57dc-461d-b0ef-3e78ede772ef",
+      "name": "微氣泡SPA",
+      "sort_order": 3
+    },
+    {
+      "id": "4f22c17c-0465-4a46-92ac-0cbf66225fd9",
+      "category_id": "67ce4780-48b7-4612-a95b-0a4a679a2637",
+      "name": "設有毛孩餐單",
+      "sort_order": 3
+    },
+    {
+      "id": "3d96e8a0-1e2b-4e1d-bcd0-518b02489664",
+      "category_id": "170724ce-f0e2-4520-908e-c0947cdfc9bf",
+      "name": "唐狗善意訓練",
+      "sort_order": 3
+    },
+    {
+      "id": "41fea7df-2736-4a20-af94-b54749a7047b",
+      "category_id": "9b51e6d5-628c-4b2b-88dd-38e5661e2813",
+      "name": "集體火化",
+      "sort_order": 3
+    },
+    {
+      "id": "3ad8bc29-f2d5-4692-b124-dc37d654d637",
+      "category_id": "4ef6e147-bad6-43f3-9fde-106bad463ca7",
+      "name": "貓專科醫院",
+      "sort_order": 3
+    },
+    {
+      "id": "80f7b660-5b9e-4807-a31d-360d66154dbb",
+      "category_id": "9995e502-7f8e-48bd-8b05-44eb6d57f700",
+      "name": "水族爬蟲",
+      "sort_order": 3
+    },
+    {
+      "id": "4a67b5c5-bbc9-4792-836d-d56132c5cf81",
+      "category_id": "3d6fd0b8-4423-4c96-8087-0273a9b8d13c",
+      "name": "設有清洗區",
+      "sort_order": 3
+    },
+    {
+      "id": "dece5a4c-3197-49cb-925f-584bdf7c8d1b",
+      "category_id": "3d6fd0b8-4423-4c96-8087-0273a9b8d13c",
+      "name": "室內寵物公園",
+      "sort_order": 4
+    },
+    {
+      "id": "916f2268-5e3d-4e00-9d88-cd74f4f386f5",
+      "category_id": "0532f190-57dc-461d-b0ef-3e78ede772ef",
+      "name": "自助洗狗機",
+      "sort_order": 4
+    },
+    {
+      "id": "e6a2d1b5-82ea-4a26-9b22-abb9abddf51b",
+      "category_id": "67ce4780-48b7-4612-a95b-0a4a679a2637",
+      "name": "貓狗Cafe",
+      "sort_order": 4
+    },
+    {
+      "id": "060756f9-6d84-4c06-b538-3e527e1c725f",
+      "category_id": "9b51e6d5-628c-4b2b-88dd-38e5661e2813",
+      "name": "紀念品處理",
+      "sort_order": 4
+    },
+    {
+      "id": "6f82b1e3-921d-41da-982c-7fdd85b1af24",
+      "category_id": "4ef6e147-bad6-43f3-9fde-106bad463ca7",
+      "name": "中醫/針灸",
+      "sort_order": 4
+    },
+    {
+      "id": "46f04d4f-8ae1-4e76-a06d-2723e960b2cd",
+      "category_id": "170724ce-f0e2-4520-908e-c0947cdfc9bf",
+      "name": "上門一對一",
+      "sort_order": 4
+    },
+    {
+      "id": "dd4538c1-fd14-4139-9686-1d1542ee39e9",
+      "category_id": "9995e502-7f8e-48bd-8b05-44eb6d57f700",
+      "name": "24H自助用品店",
+      "sort_order": 4
+    },
+    {
+      "id": "08f7a8d3-4c84-49a2-85c9-45c362416840",
+      "category_id": "4ef6e147-bad6-43f3-9fde-106bad463ca7",
+      "name": "普通門診",
+      "sort_order": 5
+    }
+  ]
+}

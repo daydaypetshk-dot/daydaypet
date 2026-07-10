@@ -1,0 +1,52 @@
+[
+  {
+    "id": "51797f7f-836b-4300-84ce-c7a2456b14a8",
+    "name": "Dog Dog Come Wonderland",
+    "district": "元朗區",
+    "address": "元朗錦田大江埔",
+    "latitude": 22.456686,
+    "longitude": 114.0207401,
+    "category_id": "3d6fd0b8-4423-4c96-8087-0273a9b8d13c",
+    "subcategory_id": "dece5a4c-3197-49cb-925f-584bdf7c8d1b"
+  },
+  {
+    "id": "3f51838f-9ec7-4826-9c8f-a10ac45282a5",
+    "name": "SOUTHSIDE PAWTY",
+    "district": "南區",
+    "address": "黃竹坑香葉道11號 THE SOUTHSIDE",
+    "latitude": 22.2472733,
+    "longitude": 114.1672577,
+    "category_id": "3d6fd0b8-4423-4c96-8087-0273a9b8d13c",
+    "subcategory_id": "dece5a4c-3197-49cb-925f-584bdf7c8d1b"
+  },
+  {
+    "id": "06ff1473-d795-47ee-bee5-76be22c8f4d8",
+    "name": "CyberPAW Zone",
+    "district": "南區",
+    "address": "數碼港商場",
+    "latitude": 22.2610676,
+    "longitude": 114.1298246,
+    "category_id": "3d6fd0b8-4423-4c96-8087-0273a9b8d13c",
+    "subcategory_id": "dece5a4c-3197-49cb-925f-584bdf7c8d1b"
+  },
+  {
+    "id": "d5a04100-91db-445a-9368-10b8d1626e55",
+    "name": "Pet Oasis 寵物綠洲",
+    "district": "葵青區",
+    "address": "葵涌打磚坪街",
+    "latitude": 22.367332,
+    "longitude": 114.1389016,
+    "category_id": "3d6fd0b8-4423-4c96-8087-0273a9b8d13c",
+    "subcategory_id": "dece5a4c-3197-49cb-925f-584bdf7c8d1b"
+  },
+  {
+    "id": "37720ca6-419d-41dc-846e-a2bb3f3e25ad",
+    "name": "Hooment",
+    "district": "觀塘區",
+    "address": "觀塘成業街6號泓富廣場",
+    "latitude": 22.3086486,
+    "longitude": 114.227661,
+    "category_id": "3d6fd0b8-4423-4c96-8087-0273a9b8d13c",
+    "subcategory_id": "dece5a4c-3197-49cb-925f-584bdf7c8d1b"
+  }
+]
