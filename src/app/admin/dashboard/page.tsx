@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
+import QRCode from "qrcode";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DivIcon } from "leaflet";
@@ -37,6 +38,10 @@ type WhatsAppBridgeStatus = {
   lastError: string | null;
   notice: string | null;
   updatedAt: string | null;
+};
+type WhatsAppBridgeQrResponse = {
+  qr?: string;
+  error?: string;
 };
 type SystemSettingsForm = {
   admin_whatsapp_number: string;
@@ -198,6 +203,12 @@ const VET_SCRAPER_KEYWORD_OPTIONS = [
   { value: "__custom__", label: "自訂", hint: "Custom" },
 ] as const;
 const GUIDE_PLACE_DISTRICTS = DISTRICTS_HK.filter((district) => district !== "全港");
+const PUBLIC_WHATSAPP_BRIDGE_URL = (() => {
+  const raw = String(
+    process.env.NEXT_PUBLIC_WHATSAPP_BRIDGE_URL || process.env.NEXT_PUBLIC_WHATSAPP_SERVICE_URL || "",
+  ).trim();
+  return raw.replace(/\/+$/, "");
+})();
 
 const createEmptyGuidePlaceForm = (): GuidePlaceFormState => ({
   category_id: "",
@@ -646,15 +657,29 @@ export default function AdminDashboardPage() {
         body: JSON.stringify({}),
       });
       const json = (await res.json().catch(() => null)) as
-        | { ok?: boolean; upserted?: number; groups?: number; candidates?: number; error?: string; detail?: string; message?: string; mode?: string }
+        | {
+            ok?: boolean;
+            upserted?: number;
+            groups?: number;
+            candidates?: number;
+            error?: string;
+            detail?: string;
+            message?: string;
+            mode?: string;
+            stack?: string;
+          }
         | null;
-      if (!res.ok) throw new Error(json?.detail || json?.error || "同步失敗");
+      if (!res.ok) {
+        const errorText = [json?.detail || json?.error || `同步失敗（HTTP ${res.status}）`, json?.stack].filter(Boolean).join("\n\n");
+        throw new Error(errorText);
+      }
       const upserted = Number.isFinite(Number(json?.upserted)) ? Number(json?.upserted) : 0;
       const label = json?.mode === "mock" ? "同步成功！已載入本地 Mock 貼文" : `同步成功！已成功抓取最新貼文（${upserted} 筆）`;
       showToast(json?.message ? `${label}` : label, "success");
       await refreshAllBoards(tab);
     } catch (err) {
       const msg = err instanceof Error && err.message ? err.message : "同步失敗";
+      alert(msg);
       showToast(msg);
     } finally {
       setScrapingFbPosts(false);
@@ -689,13 +714,37 @@ export default function AdminDashboardPage() {
     let active = true;
     const loadWhatsappStatus = async () => {
       try {
-        const res = await fetch("/api/admin/whatsapp/status", { method: "GET", cache: "no-store" });
+        if (!PUBLIC_WHATSAPP_BRIDGE_URL) {
+          console.log("[AdminDashboard][WhatsApp] 未讀取到 NEXT_PUBLIC_WHATSAPP_BRIDGE_URL");
+          throw new Error("未設定 NEXT_PUBLIC_WHATSAPP_BRIDGE_URL，前端無法直接連線 Railway WhatsApp Bridge");
+        }
+
+        const statusUrl = `${PUBLIC_WHATSAPP_BRIDGE_URL}/api/status`;
+        console.log("[AdminDashboard][WhatsApp] 準備發出請求");
+        console.log("[AdminDashboard][WhatsApp] 讀取到的 URL：", PUBLIC_WHATSAPP_BRIDGE_URL);
+        console.log("[AdminDashboard][WhatsApp] 狀態請求 URL：", statusUrl);
+
+        const res = await fetch(statusUrl, { method: "GET", cache: "no-store" });
         const data = (await res.json()) as WhatsAppBridgeStatus & { error?: string };
+        console.log("[AdminDashboard][WhatsApp] 狀態請求已發出，HTTP：", res.status, data);
         if (!res.ok) throw new Error(data.error || "讀取 WhatsApp 狀態失敗");
+
+        if (!data.qrDataUrl && data.state === "qr_ready") {
+          const qrUrl = `${PUBLIC_WHATSAPP_BRIDGE_URL}/api/qr`;
+          console.log("[AdminDashboard][WhatsApp] 狀態未附 qrDataUrl，改為請求：", qrUrl);
+          const qrRes = await fetch(qrUrl, { method: "GET", cache: "no-store" });
+          const qrJson = (await qrRes.json()) as WhatsAppBridgeQrResponse;
+          console.log("[AdminDashboard][WhatsApp] QR 請求結果：", qrRes.status, qrJson);
+          if (qrRes.ok && typeof qrJson.qr === "string" && qrJson.qr.trim()) {
+            data.qrDataUrl = await QRCode.toDataURL(qrJson.qr, { margin: 1, width: 320 });
+          }
+        }
+
         if (active) setWhatsappStatus(data);
       } catch (error) {
         if (!active) return;
         const message = error instanceof Error ? error.message : "讀取 WhatsApp 狀態失敗";
+        console.log("[AdminDashboard][WhatsApp] 請求失敗：", message);
         setWhatsappStatus({
           enabled: false,
           state: "error",

@@ -1,8 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 
+import chromium from "@sparticuz/chromium";
 import dotenv from "dotenv";
-import puppeteer, { type Browser, type Page } from "puppeteer";
+import puppeteer, { type Browser, type Page } from "puppeteer-core";
 import { createClient } from "@supabase/supabase-js";
 
 const envLocalPath = path.join(process.cwd(), ".env.local");
@@ -16,6 +17,8 @@ const GOOGLE_PLACES_API_KEY = String(process.env.GOOGLE_PLACES_API_KEY ?? "").tr
 const CHROME_PATH = String(process.env.PUPPETEER_EXECUTABLE_PATH ?? "").trim();
 const HEADLESS = String(process.env.VET_SCRAPER_HEADLESS ?? "true").trim() !== "false";
 const OUTPUT_REPORT = path.join(process.cwd(), "tmp-vet-scrape-report.json");
+
+const resolveChromeExecutablePath = async () => CHROME_PATH || (await chromium.executablePath());
 
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY");
@@ -645,12 +648,10 @@ async function run() {
 
   const browser = await puppeteer.launch({
     headless: HEADLESS,
-    executablePath: CHROME_PATH || undefined,
+    executablePath: await resolveChromeExecutablePath(),
     userDataDir,
     args: [
-      "--no-sandbox",
-      "--disable-setuid-sandbox",
-      "--disable-dev-shm-usage",
+      ...(process.env.VERCEL ? chromium.args : ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]),
       "--lang=zh-HK",
       "--disable-gpu",
       "--disable-software-rasterizer",

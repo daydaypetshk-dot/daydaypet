@@ -2,9 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 import readline from "node:readline";
 
+import chromium from "@sparticuz/chromium";
 import dotenv from "dotenv";
 import { createClient } from "@supabase/supabase-js";
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-core";
 
 const envLocalPath = path.join(process.cwd(), ".env.local");
 if (fs.existsSync(envLocalPath)) {
@@ -43,6 +44,18 @@ const MAX_DELAY_MS = envNum("FB_SCRAPER_MAX_DELAY_MS", 4200);
 const LOOP_INTERVAL_MS = envNum("FB_SCRAPER_LOOP_INTERVAL_MS", 10 * 60 * 1000);
 const SCROLL_PASSES = envNum("FB_SCRAPER_SCROLL_PASSES", 6);
 const NAV_TIMEOUT_MS = envNum("FB_SCRAPER_NAV_TIMEOUT_MS", 45_000);
+
+const DEFAULT_PUPPETEER_ARGS = [
+  "--no-sandbox",
+  "--disable-setuid-sandbox",
+  "--disable-dev-shm-usage",
+  "--disable-extensions",
+];
+
+const buildChromeArgs = (extra = []) =>
+  process.env.VERCEL ? [...chromium.args, "--disable-extensions", ...extra] : [...DEFAULT_PUPPETEER_ARGS, ...extra];
+
+const resolveChromeExecutablePath = async () => CHROME_PATH || (await chromium.executablePath());
 
 const ensureDir = (dir) => {
   try {
@@ -242,11 +255,15 @@ async function initSession() {
   ensureDir(path.dirname(COOKIES_PATH));
   ensureDir(USER_DATA_DIR);
 
+  if (!CHROME_PATH) {
+    throw new Error("init-session 需要本機 Chrome。請設定 FB_CHROME_PATH 後再執行。");
+  }
+
   const browser = await puppeteer.launch({
     headless: false,
-    executablePath: CHROME_PATH || undefined,
+    executablePath: await resolveChromeExecutablePath(),
     userDataDir: USER_DATA_DIR,
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-extensions"],
+    args: buildChromeArgs(),
   });
 
   try {
@@ -478,9 +495,9 @@ async function scrapeOnce() {
 
   const browser = await puppeteer.launch({
     headless: true,
-    executablePath: CHROME_PATH || undefined,
+    executablePath: await resolveChromeExecutablePath(),
     userDataDir: USER_DATA_DIR,
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-extensions"],
+    args: buildChromeArgs(),
   });
 
   try {

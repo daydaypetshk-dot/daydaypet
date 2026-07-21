@@ -1,7 +1,11 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import puppeteer from "puppeteer";
+import chromium from "@sparticuz/chromium";
+import puppeteer from "puppeteer-core";
+
+const CHROMIUM_CDN_PACK_URL =
+  "https://github.com/Sparticuz/chromium/releases/download/v147.0.0/chromium-v147.0.0-pack.tar";
 
 type PosterPayload = {
   id: string;
@@ -347,9 +351,17 @@ export async function POST(req: Request) {
     ]);
 
     const html = renderPosterHtml(input, photoDataUrl, qrDataUrl);
+    const executablePath =
+      process.env.NODE_ENV === "production"
+        ? await chromium.executablePath(CHROMIUM_CDN_PACK_URL)
+        : await chromium.executablePath();
 
     const browser = await puppeteer.launch({
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      args: chromium.args,
+      defaultViewport: (chromium as unknown as { defaultViewport?: { width: number; height: number; deviceScaleFactor?: number } })
+        .defaultViewport,
+      executablePath,
+      headless: (chromium as unknown as { headless?: boolean }).headless ?? true,
     });
     try {
       const page = await browser.newPage();

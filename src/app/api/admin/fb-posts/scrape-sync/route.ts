@@ -5,7 +5,8 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { NextResponse, type NextRequest } from "next/server";
-import puppeteer from "puppeteer";
+import chromium from "@sparticuz/chromium";
+import puppeteer from "puppeteer-core";
 
 import { assertAdminServer } from "@/lib/auth/role";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -57,6 +58,18 @@ function sleep(ms: number) {
 const COOKIES_PATH = env("FB_COOKIES_PATH", path.join(process.cwd(), ".secrets", "fb-cookies.json"));
 const USER_DATA_DIR = env("FB_USER_DATA_DIR", path.join(process.cwd(), ".secrets", "fb-chrome-profile"));
 const CHROME_PATH = env("FB_CHROME_PATH", "");
+const DEFAULT_PUPPETEER_ARGS = [
+  "--no-sandbox",
+  "--disable-setuid-sandbox",
+  "--disable-dev-shm-usage",
+  "--disable-accelerated-2d-canvas",
+  "--no-first-run",
+  "--no-zygote",
+  "--single-process",
+  "--disable-gpu",
+];
+const CHROMIUM_CDN_PACK_URL =
+  "https://github.com/Sparticuz/chromium/releases/download/v147.0.0/chromium-v147.0.0-pack.tar";
 
 const DEFAULT_MAX_POSTS_PER_GROUP = envNum("FB_SCRAPER_MAX_POSTS_PER_GROUP", 12);
 const DEFAULT_MAX_GROUPS_PER_RUN = envNum("FB_SCRAPER_MAX_GROUPS_PER_RUN", 0);
@@ -67,6 +80,14 @@ const NAV_TIMEOUT_MS = envNum("FB_SCRAPER_NAV_TIMEOUT_MS", 45_000);
 
 function isDevMockEnabled() {
   return process.env.NODE_ENV !== "production" && env("FB_SCRAPER_ENABLE_DEV_MOCK", "1") === "1";
+}
+
+async function resolveChromeExecutablePath() {
+  if (CHROME_PATH) return CHROME_PATH;
+  if (process.env.NODE_ENV === "production") {
+    return chromium.executablePath(CHROMIUM_CDN_PACK_URL);
+  }
+  return chromium.executablePath();
 }
 
 function ensureDir(dir: string) {
@@ -527,11 +548,16 @@ export async function POST(req: NextRequest) {
       } satisfies ScrapeSummary);
     }
 
+    const executablePath = await resolveChromeExecutablePath();
     const browser = await puppeteer.launch({
-      headless: true,
-      executablePath: CHROME_PATH || undefined,
+      args: CHROME_PATH
+        ? DEFAULT_PUPPETEER_ARGS
+        : [...chromium.args, ...DEFAULT_PUPPETEER_ARGS],
+      executablePath,
+      headless: (chromium as unknown as { headless?: boolean }).headless ?? true,
+      defaultViewport: (chromium as unknown as { defaultViewport?: { width: number; height: number; deviceScaleFactor?: number } })
+        .defaultViewport,
       userDataDir: USER_DATA_DIR,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage", "--disable-extensions"],
     });
 
     let totalGroups = 0;
@@ -649,12 +675,7 @@ export async function POST(req: NextRequest) {
     } satisfies ScrapeSummary);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error || "unknown_error");
-    return NextResponse.json(
-      {
-        error: message || "同步失敗",
-        code: "SCRAPE_SYNC_FAILED",
-      },
-      { status: 500 },
-    );
+    const stack = error instanceof Error ? error.stack : undefined;
+    return NextResponse.json({ error: message, stack }, { status: 500 });
   }
 }

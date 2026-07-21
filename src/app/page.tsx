@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { DivIcon } from "leaflet";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
 import type { RealtimeChannel, Session, User } from "@supabase/supabase-js";
@@ -1056,7 +1056,7 @@ export default function Home() {
   const [sosSpeciesFilter, setSosSpeciesFilter] = useState<SosSpeciesFilter>("all");
   const [sosBreedFilter, setSosBreedFilter] = useState<string>("all");
   const [mapLegendFilters, setMapLegendFilters] = useState<MapLegendFilterState>(DEFAULT_MAP_LEGEND_FILTERS);
-  const [isLegendExpanded, setIsLegendExpanded] = useState(true);
+  const [isLegendExpanded, setIsLegendExpanded] = useState(false);
   const [selectedPetId, setSelectedPetId] = useState<string>("");
   const [selectedGuidePlaceId, setSelectedGuidePlaceId] = useState<string>("");
   const [selectedGuidePlaceImageIndex, setSelectedGuidePlaceImageIndex] = useState(0);
@@ -1127,6 +1127,8 @@ export default function Home() {
   const [guideIconByPlaceId, setGuideIconByPlaceId] = useState<Map<string, DivIcon>>(new Map());
   const [focusedGuidePlaceId, setFocusedGuidePlaceId] = useState("");
   const districtChannelRefs = useRef<RealtimeChannel[]>([]);
+  const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
+  const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
   const pendingReportSyncingRef = useRef(false);
   const didAutoFocusRemoteCasesRef = useRef(false);
   const currentUserIdRef = useRef<string | null>(null);
@@ -1360,7 +1362,7 @@ export default function Home() {
   }, [guideCategories, lifeGuideCategory]);
 
   const mapVisualClassName = useMemo(() => {
-    if (mode === "sos") return "filter brightness-75 contrast-110 saturate-75";
+    if (mode === "sos") return "filter-none md:filter md:brightness-75 md:contrast-110 md:saturate-75";
     return "filter-none";
   }, [mode]);
 
@@ -1742,6 +1744,26 @@ export default function Home() {
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
   }, [isMounted]);
+
+  useEffect(() => {
+    if (!isMounted || isMdUp) {
+      setMobileHeaderHeight(0);
+      return;
+    }
+    const el = mobileHeaderRef.current;
+    if (!el) return;
+    const update = () => setMobileHeaderHeight(el.getBoundingClientRect().height);
+    update();
+    const frame = window.requestAnimationFrame(update);
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => update()) : null;
+    observer?.observe(el);
+    window.addEventListener("resize", update);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, [isMounted, isMdUp, mode, notificationPermissionState, sosSpeciesFilter, sosBreedFilter, lifeGuideCategory]);
 
   useEffect(() => {
     const target = String(selectedDistrict || "").trim() || "全部";
@@ -2637,6 +2659,22 @@ export default function Home() {
   const shouldShowMobileBottomControls = isMdUp
     ? true
     : !(isMobileExpanded && (mode === "sos" || mode === "life"));
+  const mobileOverlayTop = useMemo(() => {
+    if (isMdUp) return "5rem";
+    return `calc(env(safe-area-inset-top) + ${Math.max(mobileHeaderHeight + 12, 88)}px)`;
+  }, [isMdUp, mobileHeaderHeight]);
+  const mobileMapInsetsStyle = useMemo<CSSProperties | undefined>(() => {
+    if (isMdUp) return undefined;
+    return undefined;
+  }, [isMdUp]);
+  const mobileLegendBottom = useMemo(() => {
+    if (isMdUp) return "1.5rem";
+    return `calc(env(safe-area-inset-bottom) + ${shouldShowMobileBottomControls ? 156 : 76}px)`;
+  }, [isMdUp, shouldShowMobileBottomControls]);
+  const mobileFabBottom = useMemo(() => {
+    if (isMdUp) return "1.5rem";
+    return `calc(env(safe-area-inset-bottom) + ${shouldShowMobileBottomControls ? 84 : 20}px)`;
+  }, [isMdUp, shouldShowMobileBottomControls]);
 
   useEffect(() => {
     if (mode !== "sos") return;
@@ -3194,7 +3232,7 @@ export default function Home() {
           ) : null}
 
           {liveNotification ? (
-            <div className="pointer-events-none absolute inset-x-0 top-20 z-[1250] px-4">
+            <div className="pointer-events-none fixed inset-x-0 z-[1250] px-4 md:absolute md:top-20" style={{ top: mobileOverlayTop }}>
           <button
             type="button"
             onClick={() =>
@@ -3233,7 +3271,10 @@ export default function Home() {
       ) : null}
 
       {notificationPanelOpen ? (
-        <div className="absolute right-4 top-20 z-[1240] w-[min(92vw,360px)] overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
+        <div
+          className="fixed inset-x-3 z-[1240] overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/10 md:absolute md:left-auto md:right-4 md:w-[min(92vw,360px)]"
+          style={{ top: mobileOverlayTop }}
+        >
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <div className="text-sm font-black text-slate-900">🔔 街坊搜救推播設定</div>
             <button
@@ -3443,7 +3484,7 @@ export default function Home() {
         </div>
       ) : null}
 
-      <div className={`absolute inset-0 ${mapVisualClassName}`}>
+      <div className={`absolute inset-0 text-white ${mapVisualClassName}`} style={mobileMapInsetsStyle}>
         {isMounted ? (
           <SosMapCanvas
             key={mode}
@@ -3467,12 +3508,94 @@ export default function Home() {
             地圖載入中...
           </div>
         )}
+
+        {shouldShowMobileBottomControls && !isMdUp ? (
+          <div
+            className="pointer-events-none absolute inset-x-4 z-[970] flex flex-col gap-2 bg-transparent md:hidden"
+            style={{ bottom: mobileFabBottom }}
+          >
+            <div className="flex gap-2 bg-transparent">
+              <div className="flex-1 bg-transparent">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (mode !== "sos") {
+                      setMode("sos");
+                      setIsLegendExpanded(true);
+                      return;
+                    }
+                    setIsLegendExpanded((prev) => !prev);
+                  }}
+                  className="pointer-events-auto inline-flex min-h-12 w-full items-center justify-between gap-2 rounded-2xl bg-white/80 px-4 py-3 text-sm font-black text-slate-900 shadow-xl ring-1 ring-black/10 backdrop-blur-md"
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <span>🗺️</span>
+                    <span>{mode === "sos" && isLegendExpanded ? "收合圖例" : "查看圖例"}</span>
+                  </span>
+                  {mode === "sos" && isLegendExpanded ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronUp className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+
+              {SOS_ENABLED ? (
+                <div className="flex-1 bg-transparent">
+                  <button
+                    type="button"
+                    onClick={openReportModal}
+                    className="pointer-events-auto inline-flex min-h-12 w-full items-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-black text-white shadow-2xl ring-1 ring-emerald-300/60"
+                  >
+                    <span>➕</span>
+                    <span>報料尋寵</span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="pointer-events-auto w-full rounded-3xl bg-white/95 p-1 shadow-2xl ring-1 ring-black/5">
+              <div className={["grid gap-1", SOS_ENABLED ? "grid-cols-2" : "grid-cols-1"].join(" ")}>
+                <button
+                  type="button"
+                  onClick={() => setMode("life")}
+                  className={[
+                    "rounded-3xl px-4 py-3 text-center text-sm font-black",
+                    mode === "life"
+                      ? "bg-emerald-600 text-white shadow"
+                      : "bg-transparent text-zinc-800",
+                  ].join(" ")}
+                >
+                  🐾 香港寵物全指南
+                </button>
+
+                {SOS_ENABLED ? (
+                  <button
+                    type="button"
+                    onClick={() => setMode("sos")}
+                    className={[
+                      "rounded-3xl px-4 py-3 text-center text-sm font-black",
+                      mode === "sos"
+                        ? "bg-red-600 text-white shadow"
+                        : "bg-transparent text-zinc-800",
+                    ].join(" ")}
+                  >
+                    🚨 SOS尋寵地圖
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
 
-      {mode === "sos" ? (
-        <div className="pointer-events-none absolute bottom-[calc(env(safe-area-inset-bottom)+8rem)] left-4 z-[980] md:bottom-6 md:left-6">
+      {mode === "sos" && (isMdUp || !isMobileExpanded) ? (
+        <div
+          className="pointer-events-none fixed inset-x-4 z-[980] md:absolute md:left-6 md:right-auto md:inset-x-auto"
+          style={{ bottom: mobileLegendBottom }}
+        >
           {isLegendExpanded ? (
-            <div className="pointer-events-auto w-[min(280px,calc(100vw-2rem))] max-h-[300px] overflow-y-auto rounded-3xl bg-white/88 p-3 shadow-2xl ring-1 ring-black/10 backdrop-blur-md">
+            <div className="pointer-events-auto mx-auto w-full max-w-sm max-h-[240px] overflow-y-auto rounded-3xl bg-white/92 p-3 shadow-2xl ring-1 ring-black/10 backdrop-blur-md md:mx-0 md:w-[280px] md:max-h-[300px]">
               <div className="flex items-start justify-between gap-3 px-1">
                 <div>
                   <div className="text-sm font-black text-slate-900">地圖圖例</div>
@@ -3542,16 +3665,16 @@ export default function Home() {
                 })}
               </div>
             </div>
-          ) : (
+          ) : isMdUp ? (
             <button
               type="button"
               onClick={() => setIsLegendExpanded(true)}
-              className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-white/90 px-4 py-3 text-sm font-black text-slate-800 shadow-2xl ring-1 ring-black/10 backdrop-blur-md"
+              className="pointer-events-auto mx-auto inline-flex items-center gap-2 rounded-full bg-white/92 px-4 py-3 text-sm font-black text-slate-800 shadow-2xl ring-1 ring-black/10 backdrop-blur-md md:mx-0"
             >
               <span>🗺️ 查看圖例</span>
               <ChevronUp className="h-4 w-4" />
             </button>
-          )}
+          ) : null}
         </div>
       ) : null}
 
@@ -3560,15 +3683,15 @@ export default function Home() {
       </div>
 
       {isPickLocationMode ? (
-        <div className="pointer-events-none absolute inset-x-0 top-24 z-[980] px-4">
+        <div className="pointer-events-none fixed inset-x-0 z-[980] px-4 md:absolute md:top-24" style={{ top: mobileOverlayTop }}>
           <div className="rounded-2xl bg-black/75 px-4 py-3 text-sm font-black text-white shadow-xl backdrop-blur">
             📍 請直接點擊地圖選擇報料位置
           </div>
         </div>
       ) : null}
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-[900] px-4 pt-4">
-        <div className="pointer-events-auto">
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-[900] px-3 pt-[calc(env(safe-area-inset-top)+0.5rem)] md:absolute md:px-4 md:pt-4">
+        <div ref={mobileHeaderRef} className="pointer-events-auto">
           {mode === "life" ? (
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
@@ -3636,12 +3759,12 @@ export default function Home() {
             </div>
           ) : (
             <div className="space-y-2">
-              <div className="rounded-2xl bg-red-600 px-4 py-3 shadow-lg ring-1 ring-black/10">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="text-sm font-black tracking-tight text-white">
+              <div className="rounded-2xl bg-red-600 px-3 py-2.5 shadow-lg ring-1 ring-black/10 md:px-4 md:py-3">
+                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 md:flex md:justify-between md:gap-3">
+                  <div className="min-w-0 text-xs font-black tracking-tight text-white md:text-sm">
                     🐾 日日寵 尋寵地圖
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 md:gap-2">
                     <button
                       type="button"
                       onClick={() => {
@@ -3651,10 +3774,10 @@ export default function Home() {
                           void fetchAppNotifications();
                         }
                       }}
-                      className="relative flex max-w-[240px] items-center gap-2 rounded-xl bg-white/15 px-3 py-2 ring-1 ring-white/20"
+                      className="relative flex items-center gap-2 rounded-xl bg-white/15 px-2.5 py-2 ring-1 ring-white/20 md:max-w-[240px] md:px-3"
                     >
                       <span className="text-base">🔔</span>
-                      <span className="truncate text-xs font-black text-white">
+                      <span className="hidden truncate text-xs font-black text-white md:inline">
                         {navbarNotificationControlLabel} <span className="text-white/70">▼</span>
                       </span>
                       {unreadCount > 0 ? (
@@ -3668,9 +3791,11 @@ export default function Home() {
                       <button
                         type="button"
                         onClick={() => setAuthModalOpen(true)}
-                        className="rounded-xl bg-white px-3 py-2 text-sm font-black text-red-600 shadow ring-1 ring-white/60"
+                        className="rounded-xl bg-white px-2.5 py-2 text-sm font-black text-red-600 shadow ring-1 ring-white/60 md:px-3"
+                        aria-label="登入或註冊"
                       >
-                        👤 登入 / 註冊
+                        <span className="md:hidden">👤</span>
+                        <span className="hidden md:inline">👤 登入 / 註冊</span>
                       </button>
                     ) : (
                       <div className="relative">
@@ -3691,7 +3816,7 @@ export default function Home() {
                               {currentUserLabel.slice(0, 1).toUpperCase()}
                             </div>
                           )}
-                          <span className="max-w-[84px] truncate text-xs font-black text-white">
+                          <span className="hidden max-w-[84px] truncate text-xs font-black text-white sm:inline">
                             {currentUserLabel}
                           </span>
                         </button>
@@ -3722,7 +3847,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={openNotificationHelpModal}
-                  className="w-full rounded-2xl bg-black/80 px-4 py-3 text-left text-sm font-black text-white shadow-xl ring-1 ring-white/10 backdrop-blur"
+                  className="w-full rounded-2xl bg-black/80 px-3 py-2.5 text-left text-xs font-black text-white shadow-xl ring-1 ring-white/10 backdrop-blur md:px-4 md:py-3 md:text-sm"
                 >
                   🐾 哎呀，您的瀏覽器關閉了通知權限！點擊此處查看 3 秒開啟教學 ➔
                 </button>
@@ -3779,61 +3904,63 @@ export default function Home() {
       </div>
 
       {shouldShowMobileBottomControls ? (
-        <div
-          className={[
-            "pointer-events-none absolute inset-x-0 z-[950] pb-[env(safe-area-inset-bottom)]",
-            mode === "sos"
-              ? "bottom-[calc(env(safe-area-inset-bottom)+70px)] md:bottom-0"
-              : "bottom-0",
-          ].join(" ")}
-        >
-          <div className="pointer-events-auto px-4 pb-4">
-            <div className="mb-3 flex justify-end">
-              <button
-                type="button"
-                onClick={openReportModal}
-                className="rounded-full bg-emerald-500 px-5 py-4 text-sm font-black text-white shadow-2xl ring-4 ring-white/70"
-              >
-                ➕ 報料尋寵
-              </button>
-            </div>
-
-            <div className="mt-3 rounded-3xl bg-white/95 p-1 shadow-2xl ring-1 ring-black/5">
-              <div className={["grid gap-1", SOS_ENABLED ? "grid-cols-2" : "grid-cols-1"].join(" ")}>
+        isMdUp ? (
+          <div
+            className={[
+              "pointer-events-none fixed inset-x-0 z-[950] pb-[env(safe-area-inset-bottom)]",
+              mode === "sos"
+                ? "bottom-[calc(env(safe-area-inset-bottom)+70px)] md:bottom-0"
+                : "bottom-0",
+            ].join(" ")}
+          >
+            <div className="pointer-events-auto px-4 pb-4">
+              <div className="mb-3 flex justify-end">
                 <button
                   type="button"
-                  onClick={() => setMode("life")}
-                  className={[
-                    "rounded-3xl px-4 py-3 text-center text-sm font-black",
-                    mode === "life"
-                      ? "bg-emerald-600 text-white shadow"
-                      : "bg-transparent text-zinc-800",
-                  ].join(" ")}
+                  onClick={openReportModal}
+                  className="rounded-full bg-emerald-500 px-5 py-4 text-sm font-black text-white shadow-2xl ring-4 ring-white/70"
                 >
-                  🐾 香港寵物全指南
+                  ➕ 報料尋寵
                 </button>
-                {SOS_ENABLED ? (
+              </div>
+
+              <div className="mt-3 rounded-3xl bg-white/95 p-1 shadow-2xl ring-1 ring-black/5">
+                <div className={["grid gap-1", SOS_ENABLED ? "grid-cols-2" : "grid-cols-1"].join(" ")}>
                   <button
                     type="button"
-                    onClick={() => setMode("sos")}
+                    onClick={() => setMode("life")}
                     className={[
                       "rounded-3xl px-4 py-3 text-center text-sm font-black",
-                      mode === "sos"
-                        ? "bg-red-600 text-white shadow"
+                      mode === "life"
+                        ? "bg-emerald-600 text-white shadow"
                         : "bg-transparent text-zinc-800",
                     ].join(" ")}
                   >
-                    🚨 SOS尋寵地圖
+                    🐾 香港寵物全指南
                   </button>
-                ) : null}
+                  {SOS_ENABLED ? (
+                    <button
+                      type="button"
+                      onClick={() => setMode("sos")}
+                      className={[
+                        "rounded-3xl px-4 py-3 text-center text-sm font-black",
+                        mode === "sos"
+                          ? "bg-red-600 text-white shadow"
+                          : "bg-transparent text-zinc-800",
+                      ].join(" ")}
+                    >
+                      🚨 SOS尋寵地圖
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="mt-3 text-center text-[11px] font-medium text-white/80 drop-shadow">
+                日日寵 · Mobile Web
               </div>
             </div>
-
-            <div className="mt-3 text-center text-[11px] font-medium text-white/80 drop-shadow">
-              日日寵 · Mobile Web
-            </div>
           </div>
-        </div>
+        ) : null
       ) : null}
 
       {mode === "sos" || mode === "life" ? (
