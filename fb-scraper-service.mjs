@@ -31,6 +31,7 @@ const COOKIES_PATH = env(
   "FB_COOKIES_PATH",
   path.join(process.cwd(), ".secrets", "fb-cookies.json"),
 );
+const COOKIES_JSON = env("FB_COOKIES_JSON", "");
 const USER_DATA_DIR = env(
   "FB_USER_DATA_DIR",
   path.join(process.cwd(), ".secrets", "fb-chrome-profile"),
@@ -119,13 +120,32 @@ const waitForEnter = async (prompt) => {
   rl.close();
 };
 
+const parseCookieArray = (raw) => {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+};
+
 const loadCookies = () => {
+  if (COOKIES_JSON) {
+    const direct = parseCookieArray(COOKIES_JSON);
+    if (direct) return direct;
+
+    try {
+      const decoded = Buffer.from(COOKIES_JSON, "base64").toString("utf8");
+      const decodedParsed = parseCookieArray(decoded);
+      if (decodedParsed) return decodedParsed;
+    } catch {}
+  }
+
   const target = COOKIES_PATH;
   if (!fs.existsSync(target)) return null;
   try {
     const raw = fs.readFileSync(target, "utf8");
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : null;
+    return parseCookieArray(raw);
   } catch {
     return null;
   }
@@ -478,7 +498,9 @@ async function extractPostDetails(page, expectedFbPostId) {
 async function scrapeOnce() {
   const cookies = loadCookies();
   if (!cookies) {
-    throw new Error(`缺少 cookies 檔案：${COOKIES_PATH}（請先執行：node fb-scraper-service.mjs init-session）`);
+    throw new Error(
+      `缺少 Facebook session。請優先設定 FB_COOKIES_JSON；本機亦可使用 cookies 檔案：${COOKIES_PATH}（請先執行：node fb-scraper-service.mjs init-session）`,
+    );
   }
 
   ensureDir(USER_DATA_DIR);

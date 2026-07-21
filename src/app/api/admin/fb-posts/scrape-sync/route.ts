@@ -58,6 +58,7 @@ function sleep(ms: number) {
 const COOKIES_PATH = env("FB_COOKIES_PATH", path.join(process.cwd(), ".secrets", "fb-cookies.json"));
 const USER_DATA_DIR = env("FB_USER_DATA_DIR", path.join(process.cwd(), ".secrets", "fb-chrome-profile"));
 const CHROME_PATH = env("FB_CHROME_PATH", "");
+const COOKIES_JSON = env("FB_COOKIES_JSON", "");
 const DEFAULT_PUPPETEER_ARGS = [
   "--no-sandbox",
   "--disable-setuid-sandbox",
@@ -96,15 +97,38 @@ function ensureDir(dir: string) {
   } catch {}
 }
 
-function loadCookies() {
-  if (!fs.existsSync(COOKIES_PATH)) return null;
+function parseCookieArray(raw: string) {
   try {
-    const raw = fs.readFileSync(COOKIES_PATH, "utf8");
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : null;
   } catch {
     return null;
   }
+}
+
+function loadCookies() {
+  if (COOKIES_JSON) {
+    const direct = parseCookieArray(COOKIES_JSON);
+    if (direct) return direct;
+
+    try {
+      const decoded = Buffer.from(COOKIES_JSON, "base64").toString("utf8");
+      const decodedParsed = parseCookieArray(decoded);
+      if (decodedParsed) return decodedParsed;
+    } catch {}
+  }
+
+  if (fs.existsSync(COOKIES_PATH)) {
+    try {
+      const raw = fs.readFileSync(COOKIES_PATH, "utf8");
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 function normalizeFacebookUrl(input: string) {
@@ -525,7 +549,7 @@ export async function POST(req: NextRequest) {
       }
       return NextResponse.json(
         {
-          error: `缺少 cookies 檔案：${COOKIES_PATH}（請先跑一次：npm run fb:init-session）`,
+          error: `缺少 Facebook session。請優先設定 FB_COOKIES_JSON；本機開發亦可使用 cookies 檔案：${COOKIES_PATH}（請先跑一次：npm run fb:init-session）`,
           detail: "本地若想先避開真實 FB session，可在 development 使用 FB_SCRAPER_ENABLE_DEV_MOCK=1。",
           code: "MISSING_FB_COOKIES",
         },
