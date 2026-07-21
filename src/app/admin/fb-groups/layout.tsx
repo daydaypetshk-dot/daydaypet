@@ -5,6 +5,9 @@ import { assertAdminServer } from "@/lib/auth/role";
 
 export default async function AdminFbGroupsLayout({ children }: { children: ReactNode }) {
   const result = await assertAdminServer();
-  if (!result.ok) redirect("/admin/login?next=/admin/fb-groups");
+  if (!result.ok) {
+    const reason = result.status === 403 ? "not_admin" : "not_authenticated";
+    redirect(`/admin/login?next=/admin/fb-groups&reason=${reason}`);
+  }
   return children;
 }

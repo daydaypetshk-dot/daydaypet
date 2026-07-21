@@ -5,7 +5,10 @@ import { assertAdminServer } from "@/lib/auth/role";
 
 export default async function AdminDashboardLayout({ children }: { children: ReactNode }) {
   const result = await assertAdminServer();
-  if (!result.ok) redirect("/admin/login?next=/admin/dashboard");
+  if (!result.ok) {
+    const reason = result.status === 403 ? "not_admin" : "not_authenticated";
+    redirect(`/admin/login?next=/admin/dashboard&reason=${reason}`);
+  }
   return children;
 }
 

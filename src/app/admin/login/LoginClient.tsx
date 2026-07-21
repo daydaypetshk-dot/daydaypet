@@ -1,14 +1,14 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { supabaseBrowser } from "@/lib/supabase/browser";
 
 export default function LoginClient() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = useMemo(() => searchParams.get("next") || "/admin/dashboard", [searchParams]);
+  const reason = useMemo(() => searchParams.get("reason") || "", [searchParams]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,7 +28,56 @@ export default function LoginClient() {
         password,
       });
       if (error) throw error;
-      router.replace(nextPath);
+
+      const cookieNames = document.cookie
+        .split(";")
+        .map((v) => v.split("=")[0]?.trim())
+        .filter(Boolean);
+      console.log("Admin login: cookie names after sign-in:", cookieNames);
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      console.log("Admin login: session after sign-in:", Boolean(sessionData.session));
+
+      const maxAttempts = 5;
+      let lastStatus: number | undefined;
+      let lastJson:
+        | { ok?: boolean; reason?: string; error?: string; stack?: string; cookieNames?: string[] }
+        | null
+        | undefined = null;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        const authCheck = await fetch("/api/admin/auth-check", {
+          method: "GET",
+          cache: "no-store",
+          credentials: "include",
+        }).catch(() => null);
+
+        lastStatus = authCheck?.status;
+        lastJson = (await authCheck?.json().catch(() => null)) as
+          | { ok?: boolean; reason?: string; error?: string; stack?: string; cookieNames?: string[] }
+          | null;
+
+        if (authCheck?.ok && lastJson?.ok) break;
+        if (attempt < maxAttempts) {
+          await new Promise((r) => setTimeout(r, 200));
+        }
+      }
+
+      if (!lastJson?.ok) {
+        const message = [
+          lastJson?.error || `登入後權限檢查失敗（HTTP ${lastStatus ?? "ERR"}）`,
+          lastJson?.stack,
+          lastJson?.reason ? `reason: ${lastJson.reason}` : null,
+          cookieNames.length ? `client cookie names: ${cookieNames.join(", ")}` : null,
+          lastJson?.cookieNames?.length ? `server cookie names: ${lastJson.cookieNames.join(", ")}` : null,
+        ]
+          .filter(Boolean)
+          .join("\n\n");
+        alert(message);
+        return;
+      }
+
+      window.location.assign(nextPath);
     } catch (err) {
       const raw = err instanceof Error && err.message ? err.message : "登入失敗，請檢查帳號密碼。";
       const msg =
@@ -52,6 +101,14 @@ export default function LoginClient() {
             <div className="text-2xl font-black text-slate-900">日日寵 Admin</div>
             <div className="mt-1 text-sm font-semibold text-slate-500">管理員登入</div>
           </div>
+
+          {reason ? (
+            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-900">
+              {reason === "not_admin"
+                ? "你已登入，但目前帳號未被標記為 Admin（403）。請確認 Supabase user_roles 或 Vercel ADMIN_EMAILS / DEVELOPER_EMAIL 設定。"
+                : "未登入或 Session 未同步（401）。如果你剛登入仍被彈回來，通常係 cookie 未成功寫入或被瀏覽器阻擋。"}
+            </div>
+          ) : null}
 
           <form suppressHydrationWarning onSubmit={onSubmit} className="mt-6 space-y-4">
             <label className="block">

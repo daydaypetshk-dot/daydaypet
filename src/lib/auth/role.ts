@@ -32,7 +32,17 @@ export async function getSignedInUserServer() {
       getAll() {
         return cookieStore.getAll();
       },
-      setAll() {},
+      setAll(cookiesToSet) {
+        for (const { name, value, options } of cookiesToSet) {
+          try {
+            (cookieStore as unknown as { set: (name: string, value: string, options?: unknown) => void }).set(
+              name,
+              value,
+              options,
+            );
+          } catch {}
+        }
+      },
     },
   });
 

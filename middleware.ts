@@ -1,7 +1,9 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(req: NextRequest) {
+import { createSupabaseMiddlewareClient } from '@/lib/supabase/middleware';
+
+export async function middleware(req: NextRequest) {
   const basicAuth = req.headers.get('authorization');
 
   // 從環境變數讀取，確保名稱與 Vercel 的 Environment Variables 完全一致
@@ -13,7 +15,13 @@ export function middleware(req: NextRequest) {
     const [inputUser, inputPwd] = atob(authValue).split(':');
 
     if (inputUser === user && inputPwd === pwd) {
-      return NextResponse.next();
+      try {
+        const { supabase, res } = createSupabaseMiddlewareClient(req);
+        await supabase.auth.getUser();
+        return res;
+      } catch {
+        return NextResponse.next();
+      }
     }
   }
 
