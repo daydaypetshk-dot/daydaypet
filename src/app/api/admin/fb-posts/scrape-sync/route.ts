@@ -2,6 +2,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 import fs from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { NextResponse, type NextRequest } from "next/server";
@@ -56,7 +57,6 @@ function sleep(ms: number) {
 }
 
 const COOKIES_PATH = env("FB_COOKIES_PATH", path.join(process.cwd(), ".secrets", "fb-cookies.json"));
-const USER_DATA_DIR = env("FB_USER_DATA_DIR", path.join(process.cwd(), ".secrets", "fb-chrome-profile"));
 const CHROME_PATH = env("FB_CHROME_PATH", "");
 const COOKIES_JSON = env("FB_COOKIES_JSON", "");
 const CHROMIUM_CDN_PACK_URL = env(
@@ -102,6 +102,24 @@ function ensureDir(dir: string) {
   try {
     fs.mkdirSync(dir, { recursive: true });
   } catch {}
+}
+
+function resolveUserDataDir() {
+  const configured = env("FB_USER_DATA_DIR", "");
+  const localDefault = path.join(process.cwd(), ".secrets", "fb-chrome-profile");
+  const cloudDefault = path.join(tmpdir(), "fb-chrome-profile");
+  const isVercelRuntime = String(process.env.VERCEL ?? "").trim() === "1" || Boolean(String(process.env.VERCEL_ENV ?? "").trim());
+  const shouldUseCloudTmp = isVercelRuntime || process.env.NODE_ENV === "production";
+
+  if (!configured) {
+    return shouldUseCloudTmp ? cloudDefault : localDefault;
+  }
+
+  if (shouldUseCloudTmp && configured.replace(/\\/g, "/").startsWith("/var/task/")) {
+    return cloudDefault;
+  }
+
+  return configured;
 }
 
 function parseCookieArray(raw: string) {
@@ -564,7 +582,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    ensureDir(USER_DATA_DIR);
+    const userDataDir = resolveUserDataDir();
+    ensureDir(userDataDir);
 
     const groups = await listActiveGroups(admin);
     const targetGroups = maxGroups && maxGroups > 0 ? groups.slice(0, maxGroups) : groups;
@@ -588,7 +607,7 @@ export async function POST(req: NextRequest) {
       headless: (chromium as unknown as { headless?: boolean }).headless ?? true,
       defaultViewport: (chromium as unknown as { defaultViewport?: { width: number; height: number; deviceScaleFactor?: number } })
         .defaultViewport,
-      userDataDir: USER_DATA_DIR,
+      userDataDir,
     });
 
     let totalGroups = 0;
