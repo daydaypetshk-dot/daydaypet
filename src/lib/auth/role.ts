@@ -21,13 +21,13 @@ export function isDeveloperAdminEmail(email: string) {
   return false;
 }
 
-export async function getSignedInUserServer() {
+async function createSupabaseServerAuthClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !anonKey) return null;
 
   const cookieStore = await cookies();
-  const supabase = createServerClient(url, anonKey, {
+  return createServerClient(url, anonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -45,12 +45,35 @@ export async function getSignedInUserServer() {
       },
     },
   });
+}
+
+export async function getSignedInUserServer() {
+  const supabase = await createSupabaseServerAuthClient();
+  if (!supabase) return null;
 
   const { data } = await supabase.auth.getUser();
   return data.user || null;
 }
 
 export async function getUserRoleServer(userId: string, email: string | null | undefined): Promise<UserRole> {
+  try {
+    const supabase = await createSupabaseServerAuthClient();
+    if (supabase) {
+      const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle();
+      if (!error && data?.role === "admin") {
+        return "admin";
+      }
+      if (error) {
+        console.log("Admin role query via authenticated session failed:", error.message);
+      }
+    }
+  } catch (error) {
+    console.log(
+      "Admin role query via authenticated session threw:",
+      error instanceof Error ? error.message : String(error || "unknown_error"),
+    );
+  }
+
   if (email && isDeveloperAdminEmail(email)) {
     try {
       const admin = supabaseAdmin();
@@ -61,10 +84,17 @@ export async function getUserRoleServer(userId: string, email: string | null | u
 
   try {
     const admin = supabaseAdmin();
-    const { data } = await admin.from("user_roles").select("role").eq("user_id", userId).maybeSingle();
+    const { data, error } = await admin.from("user_roles").select("role").eq("user_id", userId).maybeSingle();
+    if (error) {
+      console.log("Admin role query via service role failed:", error.message);
+    }
     const role = data?.role === "admin" ? "admin" : "user";
     return role;
-  } catch {
+  } catch (error) {
+    console.log(
+      "Admin role query via service role threw:",
+      error instanceof Error ? error.message : String(error || "unknown_error"),
+    );
     return "user";
   }
 }
