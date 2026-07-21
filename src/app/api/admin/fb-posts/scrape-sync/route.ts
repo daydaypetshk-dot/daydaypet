@@ -59,6 +59,10 @@ const COOKIES_PATH = env("FB_COOKIES_PATH", path.join(process.cwd(), ".secrets",
 const USER_DATA_DIR = env("FB_USER_DATA_DIR", path.join(process.cwd(), ".secrets", "fb-chrome-profile"));
 const CHROME_PATH = env("FB_CHROME_PATH", "");
 const COOKIES_JSON = env("FB_COOKIES_JSON", "");
+const CHROMIUM_CDN_PACK_URL = env(
+  "CHROMIUM_CDN_PACK_URL",
+  "https://github.com/Sparticuz/chromium/releases/download/v147.0.0/chromium-v147.0.0-pack.x64.tar",
+);
 const DEFAULT_PUPPETEER_ARGS = [
   "--no-sandbox",
   "--disable-setuid-sandbox",
@@ -69,9 +73,6 @@ const DEFAULT_PUPPETEER_ARGS = [
   "--single-process",
   "--disable-gpu",
 ];
-const CHROMIUM_CDN_PACK_URL =
-  "https://github.com/Sparticuz/chromium/releases/download/v147.0.0/chromium-v147.0.0-pack.tar";
-
 const DEFAULT_MAX_POSTS_PER_GROUP = envNum("FB_SCRAPER_MAX_POSTS_PER_GROUP", 12);
 const DEFAULT_MAX_GROUPS_PER_RUN = envNum("FB_SCRAPER_MAX_GROUPS_PER_RUN", 0);
 const MIN_DELAY_MS = envNum("FB_SCRAPER_MIN_DELAY_MS", 1600);
@@ -86,7 +87,13 @@ function isDevMockEnabled() {
 async function resolveChromeExecutablePath() {
   if (CHROME_PATH) return CHROME_PATH;
   if (process.env.NODE_ENV === "production") {
-    return chromium.executablePath(CHROMIUM_CDN_PACK_URL);
+    try {
+      return await chromium.executablePath(CHROMIUM_CDN_PACK_URL);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error || "unknown_error");
+      console.error("[FB Scraper] Remote Chromium pack failed:", CHROMIUM_CDN_PACK_URL, message);
+      return chromium.executablePath();
+    }
   }
   return chromium.executablePath();
 }

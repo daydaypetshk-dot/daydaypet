@@ -5,7 +5,8 @@ import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
 
 const CHROMIUM_CDN_PACK_URL =
-  "https://github.com/Sparticuz/chromium/releases/download/v147.0.0/chromium-v147.0.0-pack.tar";
+  process.env.CHROMIUM_CDN_PACK_URL ||
+  "https://github.com/Sparticuz/chromium/releases/download/v147.0.0/chromium-v147.0.0-pack.x64.tar";
 
 type PosterPayload = {
   id: string;
@@ -353,7 +354,13 @@ export async function POST(req: Request) {
     const html = renderPosterHtml(input, photoDataUrl, qrDataUrl);
     const executablePath =
       process.env.NODE_ENV === "production"
-        ? await chromium.executablePath(CHROMIUM_CDN_PACK_URL)
+        ? await chromium
+            .executablePath(CHROMIUM_CDN_PACK_URL)
+            .catch(async (error) => {
+              const message = error instanceof Error ? error.message : String(error || "unknown_error");
+              console.error("[download-poster] Remote Chromium pack failed:", CHROMIUM_CDN_PACK_URL, message);
+              return chromium.executablePath();
+            })
         : await chromium.executablePath();
 
     const browser = await puppeteer.launch({
