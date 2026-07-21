@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export type UserRole = "user" | "admin";
+export type AdminSource = "user_roles" | "admin_users" | "env_whitelist" | "none";
 
 function parseAdminEmails(raw: string | undefined) {
   return (raw || "")
@@ -19,6 +20,51 @@ export function isDeveloperAdminEmail(email: string) {
   const single = (process.env.DEVELOPER_EMAIL || "").trim().toLowerCase();
   if (single && single === normalized) return true;
   return false;
+}
+
+async function lookupAdminByAuthenticatedSession(userId: string): Promise<AdminSource> {
+  const supabase = await createSupabaseServerAuthClient();
+  if (!supabase) return "none";
+
+  const { data: roleRow, error: roleError } = await supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle();
+  if (roleError) {
+    console.log("Admin role query via authenticated session failed:", roleError.message);
+  }
+  if (roleRow?.role === "admin") return "user_roles";
+
+  const { data: adminUserRow, error: adminUserError } = await supabase
+    .from("admin_users")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (adminUserError) {
+    console.log("Admin admin_users query via authenticated session failed:", adminUserError.message);
+  }
+  if (adminUserRow?.user_id) return "admin_users";
+
+  return "none";
+}
+
+async function lookupAdminByServiceRole(userId: string): Promise<AdminSource> {
+  const admin = supabaseAdmin();
+
+  const { data: roleRow, error: roleError } = await admin.from("user_roles").select("role").eq("user_id", userId).maybeSingle();
+  if (roleError) {
+    console.log("Admin role query via service role failed:", roleError.message);
+  }
+  if (roleRow?.role === "admin") return "user_roles";
+
+  const { data: adminUserRow, error: adminUserError } = await admin
+    .from("admin_users")
+    .select("user_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (adminUserError) {
+    console.log("Admin admin_users query via service role failed:", adminUserError.message);
+  }
+  if (adminUserRow?.user_id) return "admin_users";
+
+  return "none";
 }
 
 async function createSupabaseServerAuthClient() {
@@ -55,21 +101,13 @@ export async function getSignedInUserServer() {
   return data.user || null;
 }
 
-export async function getUserRoleServer(userId: string, email: string | null | undefined): Promise<UserRole> {
+export async function getAdminSourceServer(userId: string, email: string | null | undefined): Promise<AdminSource> {
   try {
-    const supabase = await createSupabaseServerAuthClient();
-    if (supabase) {
-      const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", userId).maybeSingle();
-      if (!error && data?.role === "admin") {
-        return "admin";
-      }
-      if (error) {
-        console.log("Admin role query via authenticated session failed:", error.message);
-      }
-    }
+    const sessionSource = await lookupAdminByAuthenticatedSession(userId);
+    if (sessionSource !== "none") return sessionSource;
   } catch (error) {
     console.log(
-      "Admin role query via authenticated session threw:",
+      "Admin lookup via authenticated session threw:",
       error instanceof Error ? error.message : String(error || "unknown_error"),
     );
   }
@@ -79,30 +117,32 @@ export async function getUserRoleServer(userId: string, email: string | null | u
       const admin = supabaseAdmin();
       await admin.from("user_roles").upsert({ user_id: userId, role: "admin" });
     } catch {}
-    return "admin";
+    return "env_whitelist";
   }
 
   try {
-    const admin = supabaseAdmin();
-    const { data, error } = await admin.from("user_roles").select("role").eq("user_id", userId).maybeSingle();
-    if (error) {
-      console.log("Admin role query via service role failed:", error.message);
-    }
-    const role = data?.role === "admin" ? "admin" : "user";
-    return role;
+    const serviceRoleSource = await lookupAdminByServiceRole(userId);
+    if (serviceRoleSource !== "none") return serviceRoleSource;
   } catch (error) {
     console.log(
-      "Admin role query via service role threw:",
+      "Admin lookup via service role threw:",
       error instanceof Error ? error.message : String(error || "unknown_error"),
     );
-    return "user";
   }
+
+  return "none";
+}
+
+export async function getUserRoleServer(userId: string, email: string | null | undefined): Promise<UserRole> {
+  const source = await getAdminSourceServer(userId, email);
+  return source === "none" ? "user" : "admin";
 }
 
 export async function assertAdminServer() {
   const user = await getSignedInUserServer();
   if (!user) return { ok: false as const, status: 401 as const, error: "Not authenticated" };
-  const role = await getUserRoleServer(user.id, user.email);
+  const source = await getAdminSourceServer(user.id, user.email);
+  const role: UserRole = source === "none" ? "user" : "admin";
   if (role !== "admin") return { ok: false as const, status: 403 as const, error: "Not admin" };
-  return { ok: true as const, user, role };
+  return { ok: true as const, user, role, source };
 }

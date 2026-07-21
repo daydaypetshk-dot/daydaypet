@@ -41,7 +41,16 @@ export default function LoginClient() {
       const maxAttempts = 5;
       let lastStatus: number | undefined;
       let lastJson:
-        | { ok?: boolean; reason?: string; error?: string; stack?: string; cookieNames?: string[] }
+        | {
+            ok?: boolean;
+            reason?: string;
+            error?: string;
+            stack?: string;
+            cookieNames?: string[];
+            source?: string;
+            adminEmailsConfigured?: boolean;
+            developerEmailConfigured?: boolean;
+          }
         | null
         | undefined = null;
 
@@ -54,7 +63,16 @@ export default function LoginClient() {
 
         lastStatus = authCheck?.status;
         lastJson = (await authCheck?.json().catch(() => null)) as
-          | { ok?: boolean; reason?: string; error?: string; stack?: string; cookieNames?: string[] }
+          | {
+              ok?: boolean;
+              reason?: string;
+              error?: string;
+              stack?: string;
+              cookieNames?: string[];
+              source?: string;
+              adminEmailsConfigured?: boolean;
+              developerEmailConfigured?: boolean;
+            }
           | null;
 
         if (authCheck?.ok && lastJson?.ok) break;
@@ -68,6 +86,13 @@ export default function LoginClient() {
           lastJson?.error || `登入後權限檢查失敗（HTTP ${lastStatus ?? "ERR"}）`,
           lastJson?.stack,
           lastJson?.reason ? `reason: ${lastJson.reason}` : null,
+          lastJson?.source ? `admin source: ${lastJson.source}` : null,
+          typeof lastJson?.adminEmailsConfigured === "boolean"
+            ? `ADMIN_EMAILS configured: ${lastJson.adminEmailsConfigured ? "yes" : "no"}`
+            : null,
+          typeof lastJson?.developerEmailConfigured === "boolean"
+            ? `DEVELOPER_EMAIL configured: ${lastJson.developerEmailConfigured ? "yes" : "no"}`
+            : null,
           cookieNames.length ? `client cookie names: ${cookieNames.join(", ")}` : null,
           lastJson?.cookieNames?.length ? `server cookie names: ${lastJson.cookieNames.join(", ")}` : null,
         ]
@@ -105,7 +130,7 @@ export default function LoginClient() {
           {reason ? (
             <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs font-bold text-amber-900">
               {reason === "not_admin"
-                ? "你已登入，但目前帳號未被標記為 Admin（403）。請確認 Supabase user_roles 或 Vercel ADMIN_EMAILS / DEVELOPER_EMAIL 設定。"
+                ? "你已登入，但目前帳號未被標記為 Admin（403）。現已支援檢查 Supabase user_roles、admin_users，同埋 Vercel ADMIN_EMAILS / DEVELOPER_EMAIL。"
                 : "未登入或 Session 未同步（401）。如果你剛登入仍被彈回來，通常係 cookie 未成功寫入或被瀏覽器阻擋。"}
             </div>
           ) : null}
