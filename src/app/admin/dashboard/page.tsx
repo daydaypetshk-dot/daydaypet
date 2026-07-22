@@ -675,7 +675,7 @@ export default function AdminDashboardPage() {
       }
       const upserted = Number.isFinite(Number(json?.upserted)) ? Number(json?.upserted) : 0;
       const label = json?.mode === "mock" ? "同步成功！已載入本地 Mock 貼文" : `同步成功！已成功抓取最新貼文（${upserted} 筆）`;
-      showToast(json?.message ? `${label}` : label, "success");
+      showToast(json?.message || label, "success");
       await refreshAllBoards(tab);
     } catch (err) {
       const msg = err instanceof Error && err.message ? err.message : "同步失敗";

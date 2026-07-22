@@ -1,5 +1,6 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 import fs from "node:fs";
 import { tmpdir } from "node:os";
@@ -26,6 +27,9 @@ type ScrapeSummary = {
   candidates: number;
   upserted: number;
   ai_status_counts?: FbAiStatusCounts;
+  duration_ms?: number;
+  stopped_early?: boolean;
+  remaining_groups?: number;
   message?: string;
 };
 
@@ -81,6 +85,10 @@ const MIN_DELAY_MS = envNum("FB_SCRAPER_MIN_DELAY_MS", 1600);
 const MAX_DELAY_MS = envNum("FB_SCRAPER_MAX_DELAY_MS", 4200);
 const SCROLL_PASSES = envNum("FB_SCRAPER_SCROLL_PASSES", 6);
 const NAV_TIMEOUT_MS = envNum("FB_SCRAPER_NAV_TIMEOUT_MS", 45_000);
+const DB_BATCH_SIZE = clamp(envNum("FB_SCRAPER_DB_BATCH_SIZE", 10), 1, 50);
+const POST_MIN_DELAY_MS = envNum("FB_SCRAPER_POST_MIN_DELAY_MS", 250);
+const POST_MAX_DELAY_MS = envNum("FB_SCRAPER_POST_MAX_DELAY_MS", 700);
+const SOFT_TIMEOUT_MS = envNum("FB_SCRAPER_SOFT_TIMEOUT_MS", 45_000);
 
 function isDevMockEnabled() {
   return process.env.NODE_ENV !== "production" && env("FB_SCRAPER_ENABLE_DEV_MOCK", "1") === "1";
@@ -258,9 +266,9 @@ function parseFacebookTimeToIso(raw: string) {
   return null;
 }
 
-async function randomDelay() {
-  const min = Math.min(MIN_DELAY_MS, MAX_DELAY_MS);
-  const max = Math.max(MIN_DELAY_MS, MAX_DELAY_MS);
+async function randomDelay(minMs = MIN_DELAY_MS, maxMs = MAX_DELAY_MS) {
+  const min = Math.min(minMs, maxMs);
+  const max = Math.max(minMs, maxMs);
   const jitter = min + Math.floor(Math.random() * Math.max(1, max - min));
   await sleep(jitter);
 }
@@ -324,11 +332,27 @@ async function listActiveGroups(admin: any) {
     .filter((row: MonitoredGroup) => row.id && row.group_url);
 }
 
+function chunkRows<T>(rows: T[], size: number) {
+  const chunks: T[][] = [];
+  for (let i = 0; i < rows.length; i += size) {
+    chunks.push(rows.slice(i, i + size));
+  }
+  return chunks;
+}
+
 async function upsertPosts(admin: any, rows: any[]) {
   if (!rows.length) return { inserted: 0 };
-  const { error } = await admin.from("fb_group_posts").upsert(rows, { onConflict: "source_group_id,fb_post_id" });
-  if (error) throw new Error(error.message);
-  return { inserted: rows.length };
+  let inserted = 0;
+  for (const chunk of chunkRows(rows, DB_BATCH_SIZE)) {
+    const { error } = await admin.from("fb_group_posts").upsert(chunk, { onConflict: "source_group_id,fb_post_id" });
+    if (error) throw new Error(error.message);
+    inserted += chunk.length;
+  }
+  return { inserted };
+}
+
+function shouldStopEarly(startedAt: number) {
+  return Date.now() - startedAt >= SOFT_TIMEOUT_MS;
 }
 
 async function runMockSync(admin: any, maxGroups: number): Promise<ScrapeSummary> {
@@ -549,6 +573,7 @@ async function allowAdminOrCron(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const startedAt = Date.now();
   try {
     const allowed = await allowAdminOrCron(req);
     if (!allowed.ok) return NextResponse.json({ error: allowed.error }, { status: allowed.status });
@@ -618,6 +643,8 @@ export async function POST(req: NextRequest) {
     let totalCandidates = 0;
     let totalUpserted = 0;
     const groupErrors: string[] = [];
+    let stoppedEarly = false;
+    let remainingGroups = 0;
 
     try {
       const page = await browser.newPage();
@@ -643,7 +670,13 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      for (const group of targetGroups) {
+      for (let groupIndex = 0; groupIndex < targetGroups.length; groupIndex++) {
+        const group = targetGroups[groupIndex];
+        if (shouldStopEarly(startedAt)) {
+          stoppedEarly = true;
+          remainingGroups = targetGroups.length - groupIndex;
+          break;
+        }
         totalGroups += 1;
         const url = normalizeGroupUrl(group.group_url);
         if (!url) {
@@ -675,16 +708,23 @@ export async function POST(req: NextRequest) {
 
           const candidates = await extractCandidatePosts(page, maxPostsPerGroup);
           totalCandidates += candidates.length;
+          const pendingRows: any[] = [];
 
-          for (const p of candidates) {
+          for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex++) {
+            const p = candidates[candidateIndex];
+            if (shouldStopEarly(startedAt)) {
+              stoppedEarly = true;
+              remainingGroups = targetGroups.length - groupIndex - 1;
+              break;
+            }
             const nowIso = new Date().toISOString();
             const postUrl = normalizeFacebookUrl(p.post_url);
             if (!postUrl) continue;
 
-            await randomDelay();
+            await randomDelay(POST_MIN_DELAY_MS, POST_MAX_DELAY_MS);
             await page.goto(postUrl, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
-            await randomHumanPause(600, 1400);
-            await humanScroll(page, randInt(2, 5));
+            await randomHumanPause(300, 800);
+            await humanScroll(page, randInt(1, 2));
 
             const details = await extractPostDetails(page, p.fb_post_id);
 
@@ -704,8 +744,21 @@ export async function POST(req: NextRequest) {
             if (details.content_text && details.content_text.length >= 2) row.content_text = details.content_text;
             if (details.image_urls.length) row.image_urls = details.image_urls;
 
-            await upsertPosts(admin, [row]);
-            totalUpserted += 1;
+            pendingRows.push(row);
+            if (pendingRows.length >= DB_BATCH_SIZE) {
+              const { inserted } = await upsertPosts(admin, pendingRows);
+              totalUpserted += inserted;
+              pendingRows.length = 0;
+            }
+          }
+
+          if (pendingRows.length) {
+            const { inserted } = await upsertPosts(admin, pendingRows);
+            totalUpserted += inserted;
+          }
+
+          if (stoppedEarly) {
+            break;
           }
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error || "unknown_error");
@@ -713,6 +766,7 @@ export async function POST(req: NextRequest) {
           await sleep(Math.max(5000, MAX_DELAY_MS * 2));
         }
 
+        if (stoppedEarly) break;
         await randomDelay();
       }
     } finally {
@@ -720,9 +774,12 @@ export async function POST(req: NextRequest) {
     }
 
     const counts = await getFbAiStatusCounts(admin);
-    const baseMessage = groupErrors.length
-      ? `部分群組同步失敗：${groupErrors.join(" | ")}`
-      : `同步成功，已寫入 ${totalUpserted} 筆貼文，等待你在「FB 貼文 AI 過濾中心（Mock AI）」手動觸發過濾`;
+    const durationMs = Date.now() - startedAt;
+    const baseMessage = stoppedEarly
+      ? `同步已在時間上限前先行回應，今次已寫入 ${totalUpserted} 筆貼文，尚餘 ${remainingGroups} 個群組待下次同步`
+      : groupErrors.length
+        ? `部分群組同步失敗：${groupErrors.join(" | ")}`
+        : `同步成功，已寫入 ${totalUpserted} 筆貼文，等待你在「FB 貼文 AI 過濾中心（Mock AI）」手動觸發過濾`;
 
     return NextResponse.json({
       ok: true,
@@ -731,7 +788,10 @@ export async function POST(req: NextRequest) {
       candidates: totalCandidates,
       upserted: totalUpserted,
       ai_status_counts: counts,
-      message: `${baseMessage}。${formatFbAiStatusCounts(counts)}`,
+      duration_ms: durationMs,
+      stopped_early: stoppedEarly,
+      remaining_groups: remainingGroups,
+      message: `${baseMessage}。${formatFbAiStatusCounts(counts)}。耗時 ${durationMs}ms。`,
     } satisfies ScrapeSummary);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error || "unknown_error");
