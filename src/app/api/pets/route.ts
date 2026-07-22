@@ -5,6 +5,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from "next/server";
 
+import { toImageProxyUrl } from "@/lib/image-proxy";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { createNotificationDispatchLog } from "@/lib/notifications/dispatch-log";
 import { type PetInsert } from "@/lib/pets/db";
@@ -25,7 +26,17 @@ export async function GET() {
     .not("longitude", "is", null)
     .order("created_at", { ascending: false });
   if (error) return Response.json({ error: error.message }, { status: 500 });
-  return Response.json({ items: data ?? [] });
+  const items = (data ?? []).map((item) => ({
+    ...item,
+    image_url: toImageProxyUrl((item as { image_url?: string | null }).image_url),
+    timeline: Array.isArray((item as { timeline?: unknown }).timeline)
+      ? (item as { timeline: Array<{ imageUrl?: string | null }> }).timeline.map((entry) => ({
+          ...entry,
+          imageUrl: toImageProxyUrl(entry.imageUrl),
+        }))
+      : (item as { timeline?: unknown }).timeline ?? null,
+  }));
+  return Response.json({ items });
 }
 
 type CreateCitizenPetBody = {

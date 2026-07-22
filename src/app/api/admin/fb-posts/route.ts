@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { assertAdminServer } from "@/lib/auth/role";
+import { mapImageUrlArrayWithProxy } from "@/lib/image-proxy";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type AiStatus = "pending" | "processing" | "done" | "failed" | "skipped";
@@ -24,6 +25,13 @@ type FbPostRow = {
   first_seen_at: string;
   last_seen_at: string;
 };
+
+function normalizeFbPostImages(row: FbPostRow): FbPostRow {
+  return {
+    ...row,
+    image_urls: mapImageUrlArrayWithProxy(row.image_urls),
+  };
+}
 
 function clampLimit(raw: string | null, fallback: number) {
   const n = Number(raw);
@@ -74,7 +82,8 @@ export async function GET(req: NextRequest) {
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ posts: (data ?? []) as FbPostRow[] });
+  const posts = ((data ?? []) as FbPostRow[]).map(normalizeFbPostImages);
+  return NextResponse.json({ posts });
 }
 
 export async function DELETE(req: NextRequest) {

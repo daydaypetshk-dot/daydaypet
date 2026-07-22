@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { assertAdminServer } from "@/lib/auth/role";
+import { mapImageUrlArrayWithProxy } from "@/lib/image-proxy";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type FbQueueRow = {
@@ -15,6 +16,13 @@ type FbQueueRow = {
   ai_result: unknown;
   last_seen_at: string;
 };
+
+function normalizeQueueImages(row: FbQueueRow): FbQueueRow {
+  return {
+    ...row,
+    image_urls: mapImageUrlArrayWithProxy(row.image_urls),
+  };
+}
 
 function clampLimit(value: string | null) {
   const n = Number(value);
@@ -51,7 +59,7 @@ export async function GET(req: NextRequest) {
   if (publishedError) return NextResponse.json({ error: publishedError.message }, { status: 500 });
 
   const publishedSet = new Set((published ?? []).map((r) => String((r as any)?.source_url || "").trim()).filter(Boolean));
-  const filtered = rows.filter((r) => !publishedSet.has(String(r.post_url || "").trim()));
+  const filtered = rows.filter((r) => !publishedSet.has(String(r.post_url || "").trim())).map(normalizeQueueImages);
 
   return NextResponse.json({ items: filtered });
 }

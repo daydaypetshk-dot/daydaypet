@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse, type NextRequest } from "next/server";
 
 import { assertAdminServer } from "@/lib/auth/role";
+import { toImageProxyUrl } from "@/lib/image-proxy";
 import { reverseGeocodeDistrict } from "@/lib/pets/district";
 import type { PetInsert } from "@/lib/pets/db";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -158,7 +159,7 @@ function buildFeatures(ai: AiExtract, content: string) {
 function pickImageUrl(imageUrls: unknown) {
   if (!Array.isArray(imageUrls)) return "";
   const first = imageUrls.map(String).map((s) => s.trim()).find(Boolean);
-  return first || "";
+  return toImageProxyUrl(first || "");
 }
 
 function normalizePetOverride(raw: PublishBody["pet"]) {
@@ -179,7 +180,7 @@ function normalizePetOverride(raw: PublishBody["pet"]) {
   if (typeof r.features === "string") out.features = r.features.trim();
   if (typeof r.phone === "string") out.phone = r.phone.trim();
   if (typeof r.enable_privacy === "boolean") out.enable_privacy = r.enable_privacy;
-  if (typeof r.image_url === "string") out.image_url = r.image_url.trim();
+  if (typeof r.image_url === "string") out.image_url = toImageProxyUrl(r.image_url.trim());
   if (typeof r.source_url === "string") out.source_url = normalizeExternalUrl(r.source_url);
   if (typeof r.source_link === "string") out.source_link = normalizeExternalUrl(r.source_link) || null;
   if (typeof r.source_type === "string") out.source_type = r.source_type as any;
