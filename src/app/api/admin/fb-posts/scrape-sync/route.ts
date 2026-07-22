@@ -65,6 +65,15 @@ type GroupProcessResult = {
   upserted: number;
   error: string | null;
 };
+type GroupExecutionContext = {
+  jobId: string;
+  groupIndex: number;
+  totalGroups: number;
+};
+type WithFacebookPageOptions = {
+  timeoutMs?: number;
+  timeoutMessage?: string;
+};
 
 const WORKER_JOB_ID_HEADER = "x-fb-scrape-job-id";
 const WORKER_JOB_TOKEN_HEADER = "x-fb-scrape-job-token";
@@ -125,6 +134,7 @@ const DB_BATCH_SIZE = clamp(envNum("FB_SCRAPER_DB_BATCH_SIZE", 10), 1, 50);
 const POST_MIN_DELAY_MS = envNum("FB_SCRAPER_POST_MIN_DELAY_MS", 250);
 const POST_MAX_DELAY_MS = envNum("FB_SCRAPER_POST_MAX_DELAY_MS", 700);
 const SOFT_TIMEOUT_MS = envNum("FB_SCRAPER_SOFT_TIMEOUT_MS", 45_000);
+const GROUP_TIMEOUT_MS = clamp(envNum("FB_SCRAPER_GROUP_TIMEOUT_MS", 12_000), 5_000, 60_000);
 
 function isDevMockEnabled() {
   return process.env.NODE_ENV !== "production" && env("FB_SCRAPER_ENABLE_DEV_MOCK", "1") === "1";
@@ -270,6 +280,37 @@ function normalizeGroupUrl(input: string) {
   if (!url) return "";
   if (!isProbablyFacebookUrl(url)) return "";
   return url;
+}
+
+function getGroupDisplayName(group: MonitoredGroup) {
+  return String(group.group_name || group.id || "unknown_group").trim() || "unknown_group";
+}
+
+function getGroupLogPrefix(context: GroupExecutionContext, group: MonitoredGroup) {
+  return `[FB Scrape Job ${context.jobId}] [Group ${context.groupIndex}/${context.totalGroups}] ${getGroupDisplayName(group)}`;
+}
+
+function logGroupInfo(context: GroupExecutionContext, group: MonitoredGroup, event: string, detail?: string) {
+  const suffix = detail ? ` | ${detail}` : "";
+  console.log(`${getGroupLogPrefix(context, group)} | ${event}${suffix}`);
+}
+
+function logGroupWarn(context: GroupExecutionContext, group: MonitoredGroup, event: string, detail?: string) {
+  const suffix = detail ? ` | ${detail}` : "";
+  console.warn(`${getGroupLogPrefix(context, group)} | ${event}${suffix}`);
+}
+
+function logGroupError(context: GroupExecutionContext, group: MonitoredGroup, event: string, detail?: string) {
+  const suffix = detail ? ` | ${detail}` : "";
+  console.error(`${getGroupLogPrefix(context, group)} | ${event}${suffix}`);
+}
+
+function createGroupTimeoutMessage(group: MonitoredGroup, timeoutMs: number) {
+  return `FB_GROUP_TIMEOUT:${getGroupDisplayName(group)}:${timeoutMs}`;
+}
+
+function isGroupTimeoutMessage(message: string) {
+  return message.startsWith("FB_GROUP_TIMEOUT:");
 }
 
 function parseFacebookTimeToIso(raw: string) {
@@ -721,12 +762,19 @@ async function extractPostDetails(page: any, expectedFbPostId: string) {
   };
 }
 
-async function scrapeSingleGroup(page: any, admin: any, group: MonitoredGroup, maxPostsPerGroup: number): Promise<GroupProcessResult> {
+async function scrapeSingleGroup(
+  page: any,
+  admin: any,
+  group: MonitoredGroup,
+  maxPostsPerGroup: number,
+  context: GroupExecutionContext,
+): Promise<GroupProcessResult> {
   const url = normalizeGroupUrl(group.group_url);
   if (!url) {
-    return { candidates: 0, upserted: 0, error: `群組網址無效：${group.group_name || group.id}` };
+    throw new Error(`群組網址無效：${getGroupDisplayName(group)}`);
   }
 
+  logGroupInfo(context, group, "OPEN_GROUP", `url=${url}`);
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
   if (await detectLoggedOut(page)) {
     throw new Error("FB_LOGIN_REQUIRED");
@@ -736,6 +784,7 @@ async function scrapeSingleGroup(page: any, admin: any, group: MonitoredGroup, m
   await humanScroll(page);
 
   const candidates = await extractCandidatePosts(page, maxPostsPerGroup);
+  logGroupInfo(context, group, "CANDIDATES_EXTRACTED", `count=${candidates.length}`);
   const pendingRows: any[] = [];
 
   for (const p of candidates) {
@@ -768,10 +817,11 @@ async function scrapeSingleGroup(page: any, admin: any, group: MonitoredGroup, m
   }
 
   const { inserted } = await upsertPosts(admin, pendingRows);
+  logGroupInfo(context, group, "UPSERT_DONE", `candidates=${candidates.length} inserted=${inserted}`);
   return { candidates: candidates.length, upserted: inserted, error: null };
 }
 
-async function withFacebookPage<T>(cookies: any[], handler: (page: any) => Promise<T>) {
+async function withFacebookPage<T>(cookies: any[], handler: (page: any) => Promise<T>, options?: WithFacebookPageOptions) {
   const userDataDir = resolveUserDataDir();
   ensureDir(userDataDir);
 
@@ -783,18 +833,52 @@ async function withFacebookPage<T>(cookies: any[], handler: (page: any) => Promi
     defaultViewport: (chromium as unknown as { defaultViewport?: { width: number; height: number; deviceScaleFactor?: number } }).defaultViewport,
     userDataDir,
   });
+  const timeoutMs = Number(options?.timeoutMs ?? 0) || 0;
+  const timeoutMessage = String(options?.timeoutMessage || `FB_PAGE_TIMEOUT:${timeoutMs}`);
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+  let settled = false;
 
   try {
-    const page = await browser.newPage();
-    await page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
-    await page.goto("https://www.facebook.com/", { waitUntil: "domcontentloaded" });
-    await page.setCookie(...cookies);
-    await page.goto("https://www.facebook.com/", { waitUntil: "domcontentloaded" });
-    if (await detectLoggedOut(page)) {
-      throw new Error("FB_SESSION_INVALID");
+    const run = async () => {
+      const page = await browser.newPage();
+      await page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
+      await page.goto("https://www.facebook.com/", { waitUntil: "domcontentloaded" });
+      await page.setCookie(...cookies);
+      await page.goto("https://www.facebook.com/", { waitUntil: "domcontentloaded" });
+      if (await detectLoggedOut(page)) {
+        throw new Error("FB_SESSION_INVALID");
+      }
+      return await handler(page);
+    };
+
+    if (timeoutMs <= 0) {
+      return await run();
     }
-    return await handler(page);
+
+    return await new Promise<T>((resolve, reject) => {
+      const settle = (callback: () => void) => {
+        if (settled) return;
+        settled = true;
+        if (timeoutId) clearTimeout(timeoutId);
+        callback();
+      };
+
+      timeoutId = setTimeout(() => {
+        void browser.close().catch(() => {}).finally(() => {
+          settle(() => reject(new Error(timeoutMessage)));
+        });
+      }, timeoutMs);
+
+      void run()
+        .then((result) => {
+          settle(() => resolve(result));
+        })
+        .catch((error) => {
+          settle(() => reject(error));
+        });
+    });
   } finally {
+    if (timeoutId) clearTimeout(timeoutId);
     await browser.close().catch(() => {});
   }
 }
@@ -878,6 +962,13 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
   }
 
   const group = targetGroups[job.next_group_index];
+  const groupContext: GroupExecutionContext = {
+    jobId: job.id,
+    groupIndex: job.next_group_index + 1,
+    totalGroups: targetGroups.length,
+  };
+  const maxPostsPerGroup = clamp(job.max_posts_per_group, 1, 30);
+  const groupStartedAt = Date.now();
   const nowIso = new Date().toISOString();
   job = await patchScrapeJob(admin, job.id, {
     status: "running",
@@ -888,10 +979,21 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
     current_group_name: group.group_name,
     last_message: `背景同步進行中：正在處理第 ${job.next_group_index + 1}/${targetGroups.length} 個群組「${group.group_name}」`,
   });
+  logGroupInfo(groupContext, group, "START", `timeout=${GROUP_TIMEOUT_MS}ms maxPosts=${maxPostsPerGroup}`);
 
   try {
     const result = await withFacebookPage(cookies, async (page) =>
-      scrapeSingleGroup(page, admin, group, clamp(job.max_posts_per_group, 1, 30)),
+      scrapeSingleGroup(page, admin, group, maxPostsPerGroup, groupContext),
+      {
+        timeoutMs: GROUP_TIMEOUT_MS,
+        timeoutMessage: createGroupTimeoutMessage(group, GROUP_TIMEOUT_MS),
+      },
+    );
+    logGroupInfo(
+      groupContext,
+      group,
+      "SUCCESS",
+      `duration=${Date.now() - groupStartedAt}ms candidates=${result.candidates} upserted=${result.upserted}`,
     );
     const counts = await getFbAiStatusCounts(admin);
     const nextGroupIndex = job.next_group_index + 1;
@@ -924,6 +1026,12 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
     return NextResponse.json({ ok: true, job: serializeScrapeJob(updated) });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error || "unknown_error");
+    const isGroupTimeout = isGroupTimeoutMessage(message);
+    if (isGroupTimeout) {
+      logGroupWarn(groupContext, group, "TIMEOUT", `duration=${Date.now() - groupStartedAt}ms timeout=${GROUP_TIMEOUT_MS}ms`);
+    } else {
+      logGroupError(groupContext, group, "FAILED", `duration=${Date.now() - groupStartedAt}ms error=${message}`);
+    }
     if ((message === "FB_SESSION_INVALID" || message === "FB_LOGIN_REQUIRED") && isDevMockEnabled()) {
       const summary = await runMockSync(admin, job.max_groups);
       const completed = await finalizeScrapeJob(admin, job, "completed", {
@@ -947,7 +1055,8 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
     }
 
     const counts = await getFbAiStatusCounts(admin);
-    const groupErrors = [...job.group_errors, `${group.group_name || group.id}：${message}`].slice(-50);
+    const skipMessage = isGroupTimeout ? `群組處理逾時（>${GROUP_TIMEOUT_MS}ms），已自動跳過` : message;
+    const groupErrors = [...job.group_errors, `${group.group_name || group.id}：${skipMessage}`].slice(-50);
     const nextGroupIndex = job.next_group_index + 1;
     const processedGroups = job.processed_groups + 1;
     const hasMore = nextGroupIndex < targetGroups.length;
@@ -960,11 +1069,11 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
       ai_status_counts: counts,
       current_group_id: nextGroup?.id ?? null,
       current_group_name: nextGroup?.group_name ?? null,
-      last_error: message,
+      last_error: skipMessage,
       last_heartbeat_at: new Date().toISOString(),
       finished_at: hasMore ? null : new Date().toISOString(),
       last_message: hasMore
-        ? `背景同步略過失敗群組後繼續：已完成 ${processedGroups}/${targetGroups.length} 個群組`
+        ? `背景同步略過群組「${getGroupDisplayName(group)}」後繼續：已完成 ${processedGroups}/${targetGroups.length} 個群組`
         : `背景同步完成，但有 ${groupErrors.length} 個群組失敗。${formatFbAiStatusCounts(counts)}`,
     });
     if (hasMore) {
