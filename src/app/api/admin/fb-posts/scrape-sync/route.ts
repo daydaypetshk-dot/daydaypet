@@ -10,6 +10,7 @@ import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
 
 import { assertAdminServer } from "@/lib/auth/role";
+import { clampFbAiLimit, processPendingFbPosts } from "@/lib/fb-scraper/process-ai";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type ScrapeBody = {
@@ -24,6 +25,10 @@ type ScrapeSummary = {
   groups: number;
   candidates: number;
   upserted: number;
+  ai_processed?: number;
+  ai_done?: number;
+  ai_skipped?: number;
+  ai_failed?: number;
   message?: string;
 };
 
@@ -366,13 +371,18 @@ async function runMockSync(admin: any, maxGroups: number): Promise<ScrapeSummary
   });
 
   await upsertPosts(admin, rows);
+  const aiResult = await processPendingFbPosts(admin, { limit: clampFbAiLimit(rows.length) });
   return {
     ok: true,
     mode: "mock",
     groups: targetGroups.length,
     candidates: rows.length,
     upserted: rows.length,
-    message: "本地開發環境已使用 Mock 同步資料。",
+    ai_processed: aiResult.processed,
+    ai_done: aiResult.done,
+    ai_skipped: aiResult.skipped,
+    ai_failed: aiResult.failed,
+    message: `本地開發環境已使用 Mock 同步資料，AI 已處理 ${aiResult.processed} 筆。`,
   };
 }
 
@@ -715,13 +725,23 @@ export async function POST(req: NextRequest) {
       await browser.close().catch(() => {});
     }
 
+    const aiResult = totalUpserted
+      ? await processPendingFbPosts(admin, { limit: clampFbAiLimit(totalUpserted) })
+      : { processed: 0, done: 0, skipped: 0, failed: 0 };
+
     return NextResponse.json({
       ok: true,
       mode: "live",
       groups: totalGroups,
       candidates: totalCandidates,
       upserted: totalUpserted,
-      message: groupErrors.length ? `部分群組同步失敗：${groupErrors.join(" | ")}` : "同步成功",
+      ai_processed: aiResult.processed,
+      ai_done: aiResult.done,
+      ai_skipped: aiResult.skipped,
+      ai_failed: aiResult.failed,
+      message: groupErrors.length
+        ? `部分群組同步失敗：${groupErrors.join(" | ")}`
+        : `同步成功，AI 已處理 ${aiResult.processed} 筆（待審批 ${aiResult.done} / 略過 ${aiResult.skipped} / 失敗 ${aiResult.failed}）`,
     } satisfies ScrapeSummary);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error || "unknown_error");
