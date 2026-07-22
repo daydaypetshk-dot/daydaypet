@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import QRCode from "qrcode";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DivIcon } from "leaflet";
 
@@ -164,6 +164,24 @@ type FbApprovalQueueItem = {
   image_urls: unknown;
   ai_result: unknown;
   last_seen_at: string;
+};
+type FbScrapeJobStatus = "queued" | "running" | "completed" | "failed";
+type FbScrapeJob = {
+  id: string;
+  status: FbScrapeJobStatus;
+  mode: "live" | "mock";
+  total_groups: number;
+  next_group_index: number;
+  processed_groups: number;
+  candidates: number;
+  upserted: number;
+  current_group_name: string | null;
+  last_message: string | null;
+  last_error: string | null;
+  requested_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  updated_at: string | null;
 };
 
 const DEFAULT_SYSTEM_SETTINGS: SystemSettingsForm = {
@@ -407,6 +425,8 @@ export default function AdminDashboardPage() {
   const [publishingFbPostId, setPublishingFbPostId] = useState("");
   const [deletingFbPostId, setDeletingFbPostId] = useState("");
   const [scrapingFbPosts, setScrapingFbPosts] = useState(false);
+  const [fbScrapeJob, setFbScrapeJob] = useState<FbScrapeJob | null>(null);
+  const [fbScrapeWatchJobId, setFbScrapeWatchJobId] = useState("");
   const [editingFbPostId, setEditingFbPostId] = useState<string | null>(null);
 
   const [form, setForm] = useState<PetInsert>({
@@ -587,6 +607,7 @@ export default function AdminDashboardPage() {
   const [systemSettings, setSystemSettings] = useState<SystemSettingsForm>(DEFAULT_SYSTEM_SETTINGS);
   const [loadingSystemSettings, setLoadingSystemSettings] = useState(false);
   const [savingSystemSettings, setSavingSystemSettings] = useState(false);
+  const lastHandledFbScrapeJobStateRef = useRef("");
 
   const formTimeParts = useMemo(() => {
     return parseIsoToLocalParts(form.lost_time) ?? parseIsoToLocalParts(new Date().toISOString())!;
@@ -598,6 +619,21 @@ export default function AdminDashboardPage() {
   }, [editingPet?.lost_time]);
 
   const safeEditingTimeParts = editingTimeParts ?? { date: "", hour: "00", minute: "00" };
+  const fbScrapeJobStatusText = useMemo(() => {
+    if (!fbScrapeJob) return "";
+    if (fbScrapeJob.status === "queued") {
+      return `Facebook 背景同步已排隊，準備處理 ${fbScrapeJob.total_groups} 個群組。`;
+    }
+    if (fbScrapeJob.status === "running") {
+      return `Facebook 背景同步進行中：${fbScrapeJob.processed_groups}/${fbScrapeJob.total_groups} 個群組，累計 ${fbScrapeJob.upserted} 筆貼文${
+        fbScrapeJob.current_group_name ? `，現正處理「${fbScrapeJob.current_group_name}」` : ""
+      }。`;
+    }
+    if (fbScrapeJob.status === "failed") {
+      return fbScrapeJob.last_error || fbScrapeJob.last_message || "Facebook 背景同步失敗。";
+    }
+    return fbScrapeJob.last_message || `Facebook 背景同步已完成，累計 ${fbScrapeJob.upserted} 筆貼文。`;
+  }, [fbScrapeJob]);
 
   const showToast = (message: string, tone: "error" | "success" = "error") => {
     setToastMessage(message);
@@ -630,6 +666,33 @@ export default function AdminDashboardPage() {
     return (data ?? []) as PetRow[];
   };
 
+  const fetchFbScrapeJob = async (jobId?: string) => {
+    const query = jobId ? `?jobId=${encodeURIComponent(jobId)}` : "";
+    const res = await fetch(`/api/admin/fb-posts/scrape-sync${query}`, { method: "GET", cache: "no-store" });
+    const json = (await res.json().catch(() => null)) as
+      | {
+          job?: FbScrapeJob | null;
+          error?: string;
+        }
+      | null;
+    if (!res.ok) throw new Error(json?.error || "讀取 Facebook 背景同步狀態失敗");
+    return json?.job ?? null;
+  };
+
+  const loadFbScrapeJob = async (jobId?: string, silent = false) => {
+    try {
+      const job = await fetchFbScrapeJob(jobId);
+      setFbScrapeJob(job);
+      return job;
+    } catch (err) {
+      if (!silent) {
+        const msg = err instanceof Error && err.message ? err.message : "讀取 Facebook 背景同步狀態失敗";
+        showToast(msg);
+      }
+      return null;
+    }
+  };
+
   const loadList = async (nextTab = tab) => {
     setLoadingList(true);
     try {
@@ -659,9 +722,8 @@ export default function AdminDashboardPage() {
       const json = (await res.json().catch(() => null)) as
         | {
             ok?: boolean;
-            upserted?: number;
-            groups?: number;
-            candidates?: number;
+            accepted?: boolean;
+            job?: FbScrapeJob | null;
             error?: string;
             detail?: string;
             message?: string;
@@ -673,15 +735,16 @@ export default function AdminDashboardPage() {
         const errorText = [json?.detail || json?.error || `同步失敗（HTTP ${res.status}）`, json?.stack].filter(Boolean).join("\n\n");
         throw new Error(errorText);
       }
-      const upserted = Number.isFinite(Number(json?.upserted)) ? Number(json?.upserted) : 0;
-      const label = json?.mode === "mock" ? "同步成功！已載入本地 Mock 貼文" : `同步成功！已成功抓取最新貼文（${upserted} 筆）`;
-      showToast(json?.message || label, "success");
+      const job = json?.job ?? null;
+      setFbScrapeJob(job);
+      setFbScrapeWatchJobId(job?.id || "");
+      setScrapingFbPosts(Boolean(job && (job.status === "queued" || job.status === "running")));
+      showToast(json?.message || "已啟動 Facebook 背景同步。", "success");
       await refreshAllBoards(tab);
     } catch (err) {
       const msg = err instanceof Error && err.message ? err.message : "同步失敗";
       alert(msg);
       showToast(msg);
-    } finally {
       setScrapingFbPosts(false);
     }
   };
@@ -708,7 +771,50 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     void refreshAllBoards("approved");
+    void (async () => {
+      const job = await loadFbScrapeJob(undefined, true);
+      if (job && (job.status === "queued" || job.status === "running")) {
+        setFbScrapeWatchJobId(job.id);
+        setScrapingFbPosts(true);
+      }
+    })();
   }, []);
+
+  useEffect(() => {
+    const watchingJobId = fbScrapeWatchJobId || fbScrapeJob?.id || "";
+    if (!watchingJobId) return;
+
+    let active = true;
+    const timer = window.setInterval(() => {
+      void (async () => {
+        const job = await loadFbScrapeJob(watchingJobId, true);
+        if (!active || !job) return;
+
+        const stateKey = `${job.id}:${job.status}:${job.updated_at || ""}:${job.upserted}:${job.processed_groups}`;
+        if (job.status === "completed" || job.status === "failed") {
+          window.clearInterval(timer);
+          setFbScrapeWatchJobId("");
+          setScrapingFbPosts(false);
+          if (lastHandledFbScrapeJobStateRef.current !== stateKey) {
+            lastHandledFbScrapeJobStateRef.current = stateKey;
+            if (job.status === "completed") {
+              showToast(job.last_message || "Facebook 背景同步已完成。", "success");
+            } else {
+              const msg = job.last_error || job.last_message || "Facebook 背景同步失敗。";
+              alert(msg);
+              showToast(msg);
+            }
+          }
+          await refreshAllBoards(tab);
+        }
+      })();
+    }, 3000);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [fbScrapeWatchJobId, fbScrapeJob?.id, tab]);
 
   useEffect(() => {
     let active = true;
@@ -5783,6 +5889,11 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
             </div>
+            {fbScrapeJobStatusText ? (
+              <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-600">
+                {fbScrapeJobStatusText}
+              </div>
+            ) : null}
 
             <div className="mt-4 flex gap-2">
               <button

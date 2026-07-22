@@ -6,7 +6,7 @@ import fs from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
 
@@ -32,6 +32,42 @@ type ScrapeSummary = {
   remaining_groups?: number;
   message?: string;
 };
+type FbScrapeJobStatus = "queued" | "running" | "completed" | "failed";
+type FbScrapeJobMode = "live" | "mock";
+type FbScrapeJobRow = {
+  id: string;
+  requested_by_user_id: string | null;
+  job_token: string;
+  status: FbScrapeJobStatus;
+  mode: FbScrapeJobMode;
+  max_groups: number;
+  max_posts_per_group: number;
+  total_groups: number;
+  next_group_index: number;
+  processed_groups: number;
+  candidates: number;
+  upserted: number;
+  group_errors: string[];
+  ai_status_counts: FbAiStatusCounts | null;
+  current_group_id: string | null;
+  current_group_name: string | null;
+  last_message: string | null;
+  last_error: string | null;
+  requested_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
+  last_heartbeat_at: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+type GroupProcessResult = {
+  candidates: number;
+  upserted: number;
+  error: string | null;
+};
+
+const WORKER_JOB_ID_HEADER = "x-fb-scrape-job-id";
+const WORKER_JOB_TOKEN_HEADER = "x-fb-scrape-job-token";
 
 function env(key: string, fallback = "") {
   const v = String(process.env[key] ?? "").trim();
@@ -355,6 +391,130 @@ function shouldStopEarly(startedAt: number) {
   return Date.now() - startedAt >= SOFT_TIMEOUT_MS;
 }
 
+function normalizeStringArray(value: unknown) {
+  return Array.isArray(value) ? value.map((item) => String(item || "").trim()).filter(Boolean) : [];
+}
+
+function normalizeJobStatus(value: unknown): FbScrapeJobStatus {
+  switch (String(value || "").trim()) {
+    case "running":
+    case "completed":
+    case "failed":
+      return value as FbScrapeJobStatus;
+    default:
+      return "queued";
+  }
+}
+
+function normalizeJobMode(value: unknown): FbScrapeJobMode {
+  return String(value || "").trim() === "mock" ? "mock" : "live";
+}
+
+function normalizeFbAiStatusCounts(value: unknown): FbAiStatusCounts | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const source = value as Record<string, unknown>;
+  return {
+    pending: Number(source.pending ?? 0) || 0,
+    processing: Number(source.processing ?? 0) || 0,
+    done: Number(source.done ?? 0) || 0,
+    skipped: Number(source.skipped ?? 0) || 0,
+    failed: Number(source.failed ?? 0) || 0,
+  };
+}
+
+function mapScrapeJobRow(row: any): FbScrapeJobRow {
+  return {
+    id: String(row?.id || ""),
+    requested_by_user_id: row?.requested_by_user_id ? String(row.requested_by_user_id) : null,
+    job_token: String(row?.job_token || ""),
+    status: normalizeJobStatus(row?.status),
+    mode: normalizeJobMode(row?.mode),
+    max_groups: Number(row?.max_groups ?? 0) || 0,
+    max_posts_per_group: Number(row?.max_posts_per_group ?? DEFAULT_MAX_POSTS_PER_GROUP) || DEFAULT_MAX_POSTS_PER_GROUP,
+    total_groups: Number(row?.total_groups ?? 0) || 0,
+    next_group_index: Number(row?.next_group_index ?? 0) || 0,
+    processed_groups: Number(row?.processed_groups ?? 0) || 0,
+    candidates: Number(row?.candidates ?? 0) || 0,
+    upserted: Number(row?.upserted ?? 0) || 0,
+    group_errors: normalizeStringArray(row?.group_errors),
+    ai_status_counts: normalizeFbAiStatusCounts(row?.ai_status_counts),
+    current_group_id: row?.current_group_id ? String(row.current_group_id) : null,
+    current_group_name: row?.current_group_name ? String(row.current_group_name) : null,
+    last_message: row?.last_message ? String(row.last_message) : null,
+    last_error: row?.last_error ? String(row.last_error) : null,
+    requested_at: row?.requested_at ? String(row.requested_at) : null,
+    started_at: row?.started_at ? String(row.started_at) : null,
+    finished_at: row?.finished_at ? String(row.finished_at) : null,
+    last_heartbeat_at: row?.last_heartbeat_at ? String(row.last_heartbeat_at) : null,
+    created_at: row?.created_at ? String(row.created_at) : null,
+    updated_at: row?.updated_at ? String(row.updated_at) : null,
+  };
+}
+
+function serializeScrapeJob(job: FbScrapeJobRow) {
+  const { job_token: _jobToken, ...rest } = job;
+  return rest;
+}
+
+async function getScrapeJobById(admin: any, jobId: string) {
+  const { data, error } = await admin.from("fb_scrape_jobs").select("*").eq("id", jobId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? mapScrapeJobRow(data) : null;
+}
+
+async function getLatestScrapeJob(admin: any, onlyActive = false) {
+  let query = admin.from("fb_scrape_jobs").select("*").order("requested_at", { ascending: false }).limit(1);
+  if (onlyActive) query = query.in("status", ["queued", "running"]);
+  const { data, error } = await query.maybeSingle();
+  if (error) throw new Error(error.message);
+  return data ? mapScrapeJobRow(data) : null;
+}
+
+async function patchScrapeJob(admin: any, jobId: string, patch: Record<string, unknown>) {
+  const payload = { ...patch, updated_at: new Date().toISOString() };
+  const { data, error } = await admin.from("fb_scrape_jobs").update(payload).eq("id", jobId).select("*").single();
+  if (error) throw new Error(error.message);
+  return mapScrapeJobRow(data);
+}
+
+async function createScrapeJob(admin: any, payload: Record<string, unknown>) {
+  const nowIso = new Date().toISOString();
+  const { data, error } = await admin
+    .from("fb_scrape_jobs")
+    .insert({
+      ...payload,
+      requested_at: nowIso,
+      created_at: nowIso,
+      updated_at: nowIso,
+    })
+    .select("*")
+    .single();
+  if (error) throw new Error(error.message);
+  return mapScrapeJobRow(data);
+}
+
+async function triggerScrapeJobWorker(origin: string, jobId: string, jobToken: string) {
+  const url = `${origin.replace(/\/$/, "")}/api/admin/fb-posts/scrape-sync`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        [WORKER_JOB_ID_HEADER]: jobId,
+        [WORKER_JOB_TOKEN_HEADER]: jobToken,
+      },
+      body: JSON.stringify({}),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.error("[FB Scrape Job] Worker trigger failed:", res.status, text);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error || "unknown_error");
+    console.error("[FB Scrape Job] Worker trigger error:", message);
+  }
+}
+
 async function runMockSync(admin: any, maxGroups: number): Promise<ScrapeSummary> {
   const groups = await listActiveGroups(admin);
   const targetGroups = maxGroups && maxGroups > 0 ? groups.slice(0, maxGroups) : groups.slice(0, 1);
@@ -561,20 +721,287 @@ async function extractPostDetails(page: any, expectedFbPostId: string) {
   };
 }
 
+async function scrapeSingleGroup(page: any, admin: any, group: MonitoredGroup, maxPostsPerGroup: number): Promise<GroupProcessResult> {
+  const url = normalizeGroupUrl(group.group_url);
+  if (!url) {
+    return { candidates: 0, upserted: 0, error: `群組網址無效：${group.group_name || group.id}` };
+  }
+
+  await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
+  if (await detectLoggedOut(page)) {
+    throw new Error("FB_LOGIN_REQUIRED");
+  }
+
+  await randomDelay();
+  await humanScroll(page);
+
+  const candidates = await extractCandidatePosts(page, maxPostsPerGroup);
+  const pendingRows: any[] = [];
+
+  for (const p of candidates) {
+    const nowIso = new Date().toISOString();
+    const postUrl = normalizeFacebookUrl(p.post_url);
+    if (!postUrl) continue;
+
+    await randomDelay(POST_MIN_DELAY_MS, POST_MAX_DELAY_MS);
+    await page.goto(postUrl, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
+    await randomHumanPause(300, 800);
+    await humanScroll(page, randInt(1, 2));
+
+    const details = await extractPostDetails(page, p.fb_post_id);
+    const row: any = {
+      source_group_id: group.id,
+      fb_post_id: p.fb_post_id,
+      post_url: postUrl,
+      last_seen_at: nowIso,
+      raw_payload: {
+        post_url: postUrl,
+        scraped_at: nowIso,
+        post_created_at_raw: details.post_created_at_raw,
+      },
+    };
+
+    if (details.post_created_at) row.post_created_at = details.post_created_at;
+    if (details.content_text && details.content_text.length >= 2) row.content_text = details.content_text;
+    if (details.image_urls.length) row.image_urls = details.image_urls;
+    pendingRows.push(row);
+  }
+
+  const { inserted } = await upsertPosts(admin, pendingRows);
+  return { candidates: candidates.length, upserted: inserted, error: null };
+}
+
+async function withFacebookPage<T>(cookies: any[], handler: (page: any) => Promise<T>) {
+  const userDataDir = resolveUserDataDir();
+  ensureDir(userDataDir);
+
+  const executablePath = await resolveChromeExecutablePath();
+  const browser = await puppeteer.launch({
+    args: CHROME_PATH ? DEFAULT_PUPPETEER_ARGS : [...chromium.args, ...DEFAULT_PUPPETEER_ARGS],
+    executablePath,
+    headless: (chromium as unknown as { headless?: boolean }).headless ?? true,
+    defaultViewport: (chromium as unknown as { defaultViewport?: { width: number; height: number; deviceScaleFactor?: number } }).defaultViewport,
+    userDataDir,
+  });
+
+  try {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
+    await page.goto("https://www.facebook.com/", { waitUntil: "domcontentloaded" });
+    await page.setCookie(...cookies);
+    await page.goto("https://www.facebook.com/", { waitUntil: "domcontentloaded" });
+    if (await detectLoggedOut(page)) {
+      throw new Error("FB_SESSION_INVALID");
+    }
+    return await handler(page);
+  } finally {
+    await browser.close().catch(() => {});
+  }
+}
+
 async function allowAdminOrCron(req: NextRequest) {
   const guard = await assertAdminServer();
-  if (guard.ok) return { ok: true as const };
+  if (guard.ok) return { ok: true as const, userId: guard.user.id };
 
   const secret = env("FB_SCRAPER_CRON_SECRET", "");
   const headerSecret = String(req.headers.get("x-cron-secret") || "").trim();
-  if (secret && headerSecret && headerSecret === secret) return { ok: true as const };
+  if (secret && headerSecret && headerSecret === secret) return { ok: true as const, userId: null };
 
   return { ok: false as const, status: guard.status, error: guard.error };
 }
 
-export async function POST(req: NextRequest) {
-  const startedAt = Date.now();
+async function finalizeScrapeJob(admin: any, job: FbScrapeJobRow, status: Extract<FbScrapeJobStatus, "completed" | "failed">, patch: Record<string, unknown>) {
+  const counts = await getFbAiStatusCounts(admin);
+  return patchScrapeJob(admin, job.id, {
+    status,
+    ai_status_counts: counts,
+    current_group_id: null,
+    current_group_name: null,
+    finished_at: new Date().toISOString(),
+    ...patch,
+  });
+}
+
+async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: string) {
+  const admin = supabaseAdmin();
+  const existingJob = await getScrapeJobById(admin, jobId);
+  if (!existingJob) return NextResponse.json({ error: "找不到 Facebook 同步工作。" }, { status: 404 });
+  if (existingJob.job_token !== jobToken) {
+    return NextResponse.json({ error: "Facebook 同步工作驗證失敗。" }, { status: 401 });
+  }
+  if (existingJob.status === "completed" || existingJob.status === "failed") {
+    return NextResponse.json({ ok: true, job: serializeScrapeJob(existingJob) });
+  }
+
+  const groups = await listActiveGroups(admin);
+  const targetGroups = existingJob.max_groups > 0 ? groups.slice(0, existingJob.max_groups) : groups;
+  let job = existingJob;
+  if (job.total_groups !== targetGroups.length) {
+    job = await patchScrapeJob(admin, job.id, { total_groups: targetGroups.length });
+  }
+
+  if (!targetGroups.length) {
+    const completed = await finalizeScrapeJob(admin, job, "completed", {
+      mode: "live",
+      last_message: "目前沒有啟用中的 Facebook 監控群組。",
+    });
+    return NextResponse.json({ ok: true, job: serializeScrapeJob(completed) });
+  }
+
+  if (job.next_group_index >= targetGroups.length) {
+    const completed = await finalizeScrapeJob(admin, job, "completed", {
+      last_message: `背景同步已完成。${formatFbAiStatusCounts(job.ai_status_counts || (await getFbAiStatusCounts(admin)))}`,
+    });
+    return NextResponse.json({ ok: true, job: serializeScrapeJob(completed) });
+  }
+
+  const cookies = loadCookies();
+  if (!cookies) {
+    if (isDevMockEnabled()) {
+      const summary = await runMockSync(admin, job.max_groups);
+      const completed = await finalizeScrapeJob(admin, job, "completed", {
+        mode: "mock",
+        total_groups: summary.groups,
+        processed_groups: summary.groups,
+        next_group_index: summary.groups,
+        candidates: summary.candidates,
+        upserted: summary.upserted,
+        last_message: summary.message,
+      });
+      return NextResponse.json({ ok: true, job: serializeScrapeJob(completed) });
+    }
+    const failed = await finalizeScrapeJob(admin, job, "failed", {
+      last_error: `缺少 Facebook session。請優先設定 FB_COOKIES_JSON；本機開發亦可使用 cookies 檔案：${COOKIES_PATH}（請先跑一次：npm run fb:init-session）`,
+      last_message: "背景同步失敗：未設定有效 Facebook session。",
+    });
+    return NextResponse.json({ ok: true, job: serializeScrapeJob(failed) });
+  }
+
+  const group = targetGroups[job.next_group_index];
+  const nowIso = new Date().toISOString();
+  job = await patchScrapeJob(admin, job.id, {
+    status: "running",
+    mode: "live",
+    started_at: job.started_at || nowIso,
+    last_heartbeat_at: nowIso,
+    current_group_id: group.id,
+    current_group_name: group.group_name,
+    last_message: `背景同步進行中：正在處理第 ${job.next_group_index + 1}/${targetGroups.length} 個群組「${group.group_name}」`,
+  });
+
   try {
+    const result = await withFacebookPage(cookies, async (page) =>
+      scrapeSingleGroup(page, admin, group, clamp(job.max_posts_per_group, 1, 30)),
+    );
+    const counts = await getFbAiStatusCounts(admin);
+    const nextGroupIndex = job.next_group_index + 1;
+    const processedGroups = job.processed_groups + 1;
+    const hasMore = nextGroupIndex < targetGroups.length;
+    const nextGroup = hasMore ? targetGroups[nextGroupIndex] : null;
+    const updated = await patchScrapeJob(admin, job.id, {
+      status: hasMore ? "running" : "completed",
+      processed_groups: processedGroups,
+      next_group_index: nextGroupIndex,
+      candidates: job.candidates + result.candidates,
+      upserted: job.upserted + result.upserted,
+      ai_status_counts: counts,
+      current_group_id: nextGroup?.id ?? null,
+      current_group_name: nextGroup?.group_name ?? null,
+      last_error: null,
+      last_heartbeat_at: new Date().toISOString(),
+      finished_at: hasMore ? null : new Date().toISOString(),
+      last_message: hasMore
+        ? `背景同步進行中：已完成 ${processedGroups}/${targetGroups.length} 個群組，累計寫入 ${job.upserted + result.upserted} 筆貼文`
+        : `背景同步完成：共完成 ${processedGroups} 個群組，寫入 ${job.upserted + result.upserted} 筆貼文。${formatFbAiStatusCounts(counts)}`,
+    });
+
+    if (hasMore) {
+      after(async () => {
+        await triggerScrapeJobWorker(req.nextUrl.origin, updated.id, updated.job_token);
+      });
+    }
+
+    return NextResponse.json({ ok: true, job: serializeScrapeJob(updated) });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error || "unknown_error");
+    if ((message === "FB_SESSION_INVALID" || message === "FB_LOGIN_REQUIRED") && isDevMockEnabled()) {
+      const summary = await runMockSync(admin, job.max_groups);
+      const completed = await finalizeScrapeJob(admin, job, "completed", {
+        mode: "mock",
+        total_groups: summary.groups,
+        processed_groups: summary.groups,
+        next_group_index: summary.groups,
+        candidates: summary.candidates,
+        upserted: summary.upserted,
+        last_message: "Facebook cookies 已失效，本地開發環境已自動改用 Mock 同步。",
+      });
+      return NextResponse.json({ ok: true, job: serializeScrapeJob(completed) });
+    }
+
+    if (message === "FB_SESSION_INVALID" || message === "FB_LOGIN_REQUIRED") {
+      const failed = await finalizeScrapeJob(admin, job, "failed", {
+        last_error: "Facebook cookies 似乎已失效或需要重新驗證（請重新跑：npm run fb:init-session）",
+        last_message: "背景同步失敗：Facebook session 已失效。",
+      });
+      return NextResponse.json({ ok: true, job: serializeScrapeJob(failed) });
+    }
+
+    const counts = await getFbAiStatusCounts(admin);
+    const groupErrors = [...job.group_errors, `${group.group_name || group.id}：${message}`].slice(-50);
+    const nextGroupIndex = job.next_group_index + 1;
+    const processedGroups = job.processed_groups + 1;
+    const hasMore = nextGroupIndex < targetGroups.length;
+    const nextGroup = hasMore ? targetGroups[nextGroupIndex] : null;
+    const updated = await patchScrapeJob(admin, job.id, {
+      status: hasMore ? "running" : "completed",
+      processed_groups: processedGroups,
+      next_group_index: nextGroupIndex,
+      group_errors: groupErrors,
+      ai_status_counts: counts,
+      current_group_id: nextGroup?.id ?? null,
+      current_group_name: nextGroup?.group_name ?? null,
+      last_error: message,
+      last_heartbeat_at: new Date().toISOString(),
+      finished_at: hasMore ? null : new Date().toISOString(),
+      last_message: hasMore
+        ? `背景同步略過失敗群組後繼續：已完成 ${processedGroups}/${targetGroups.length} 個群組`
+        : `背景同步完成，但有 ${groupErrors.length} 個群組失敗。${formatFbAiStatusCounts(counts)}`,
+    });
+    if (hasMore) {
+      after(async () => {
+        await triggerScrapeJobWorker(req.nextUrl.origin, updated.id, updated.job_token);
+      });
+    }
+    return NextResponse.json({ ok: true, job: serializeScrapeJob(updated) });
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    const allowed = await allowAdminOrCron(req);
+    if (!allowed.ok) return NextResponse.json({ error: allowed.error }, { status: allowed.status });
+
+    const admin = supabaseAdmin();
+    const jobId = String(req.nextUrl.searchParams.get("jobId") || "").trim();
+    const job = jobId
+      ? await getScrapeJobById(admin, jobId)
+      : (await getLatestScrapeJob(admin, true)) || (await getLatestScrapeJob(admin, false));
+
+    return NextResponse.json({ ok: true, job: job ? serializeScrapeJob(job) : null });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error || "unknown_error");
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const workerJobId = String(req.headers.get(WORKER_JOB_ID_HEADER) || "").trim();
+    const workerJobToken = String(req.headers.get(WORKER_JOB_TOKEN_HEADER) || "").trim();
+    if (workerJobId && workerJobToken) {
+      return await handleScrapeJobWorker(req, workerJobId, workerJobToken);
+    }
+
     const allowed = await allowAdminOrCron(req);
     if (!allowed.ok) return NextResponse.json({ error: allowed.error }, { status: allowed.status });
 
@@ -588,19 +1015,21 @@ export async function POST(req: NextRequest) {
       1,
       30,
     );
-    const maxGroups = clamp(
-      Number.isFinite(Number(body.maxGroups)) ? Number(body.maxGroups) : DEFAULT_MAX_GROUPS_PER_RUN,
-      0,
-      50,
-    );
+    const maxGroups = clamp(Number.isFinite(Number(body.maxGroups)) ? Number(body.maxGroups) : DEFAULT_MAX_GROUPS_PER_RUN, 0, 50);
 
     const admin = supabaseAdmin();
+    const activeJob = await getLatestScrapeJob(admin, true);
+    if (activeJob) {
+      return NextResponse.json({
+        ok: true,
+        accepted: true,
+        job: serializeScrapeJob(activeJob),
+        message: activeJob.last_message || "已有 Facebook 背景同步工作正在執行。",
+      });
+    }
+
     const cookies = loadCookies();
-    if (!cookies) {
-      if (isDevMockEnabled()) {
-        const mock = await runMockSync(admin, maxGroups);
-        return NextResponse.json(mock);
-      }
+    if (!cookies && !isDevMockEnabled()) {
       return NextResponse.json(
         {
           error: `缺少 Facebook session。請優先設定 FB_COOKIES_JSON；本機開發亦可使用 cookies 檔案：${COOKIES_PATH}（請先跑一次：npm run fb:init-session）`,
@@ -611,188 +1040,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const userDataDir = resolveUserDataDir();
-    ensureDir(userDataDir);
-
     const groups = await listActiveGroups(admin);
-    const targetGroups = maxGroups && maxGroups > 0 ? groups.slice(0, maxGroups) : groups;
-    if (!targetGroups.length) {
-      return NextResponse.json({
-        ok: true,
-        mode: "live",
-        groups: 0,
-        candidates: 0,
-        upserted: 0,
-        message: "目前沒有啟用中的 Facebook 監控群組。",
-      } satisfies ScrapeSummary);
-    }
-
-    const executablePath = await resolveChromeExecutablePath();
-    const browser = await puppeteer.launch({
-      args: CHROME_PATH
-        ? DEFAULT_PUPPETEER_ARGS
-        : [...chromium.args, ...DEFAULT_PUPPETEER_ARGS],
-      executablePath,
-      headless: (chromium as unknown as { headless?: boolean }).headless ?? true,
-      defaultViewport: (chromium as unknown as { defaultViewport?: { width: number; height: number; deviceScaleFactor?: number } })
-        .defaultViewport,
-      userDataDir,
+    const targetGroups = maxGroups > 0 ? groups.slice(0, maxGroups) : groups;
+    const counts = await getFbAiStatusCounts(admin);
+    const nowIso = new Date().toISOString();
+    const job = await createScrapeJob(admin, {
+      requested_by_user_id: allowed.userId,
+      job_token: crypto.randomUUID(),
+      status: targetGroups.length ? "queued" : "completed",
+      mode: isDevMockEnabled() && !cookies ? "mock" : "live",
+      max_groups: maxGroups,
+      max_posts_per_group: maxPostsPerGroup,
+      total_groups: targetGroups.length,
+      next_group_index: 0,
+      processed_groups: 0,
+      candidates: 0,
+      upserted: 0,
+      group_errors: [],
+      ai_status_counts: counts,
+      current_group_id: null,
+      current_group_name: null,
+      last_message: targetGroups.length
+        ? `Facebook 背景同步已啟動，準備處理 ${targetGroups.length} 個群組。`
+        : "目前沒有啟用中的 Facebook 監控群組。",
+      last_error: null,
+      finished_at: targetGroups.length ? null : nowIso,
+      last_heartbeat_at: targetGroups.length ? null : nowIso,
     });
 
-    let totalGroups = 0;
-    let totalCandidates = 0;
-    let totalUpserted = 0;
-    const groupErrors: string[] = [];
-    let stoppedEarly = false;
-    let remainingGroups = 0;
-
-    try {
-      const page = await browser.newPage();
-      await page.setViewport({ width: 1280, height: 900, deviceScaleFactor: 1 });
-      await page.goto("https://www.facebook.com/", { waitUntil: "domcontentloaded" });
-      await page.setCookie(...cookies);
-      await page.goto("https://www.facebook.com/", { waitUntil: "domcontentloaded" });
-      if (await detectLoggedOut(page)) {
-        if (isDevMockEnabled()) {
-          await browser.close().catch(() => {});
-          const mock = await runMockSync(admin, maxGroups);
-          return NextResponse.json({
-            ...mock,
-            message: "Facebook cookies 已失效，本地開發環境已自動改用 Mock 同步。",
-          });
-        }
-        return NextResponse.json(
-          {
-            error: "Facebook cookies 似乎已失效或需要重新驗證（請重新跑：npm run fb:init-session）",
-            code: "FB_SESSION_INVALID",
-          },
-          { status: 400 },
-        );
-      }
-
-      for (let groupIndex = 0; groupIndex < targetGroups.length; groupIndex++) {
-        const group = targetGroups[groupIndex];
-        if (shouldStopEarly(startedAt)) {
-          stoppedEarly = true;
-          remainingGroups = targetGroups.length - groupIndex;
-          break;
-        }
-        totalGroups += 1;
-        const url = normalizeGroupUrl(group.group_url);
-        if (!url) {
-          groupErrors.push(`群組網址無效：${group.group_name || group.id}`);
-          continue;
-        }
-
-        try {
-          await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
-          if (await detectLoggedOut(page)) {
-            if (isDevMockEnabled()) {
-              const mock = await runMockSync(admin, maxGroups);
-              return NextResponse.json({
-                ...mock,
-                message: "同步途中偵測到登入失效，本地開發環境已自動切換為 Mock 同步。",
-              });
-            }
-            return NextResponse.json(
-              {
-                error: "偵測到未登入狀態（cookies 可能失效 / FB 要求 checkpoint）",
-                code: "FB_LOGIN_REQUIRED",
-              },
-              { status: 400 },
-            );
-          }
-
-          await randomDelay();
-          await humanScroll(page);
-
-          const candidates = await extractCandidatePosts(page, maxPostsPerGroup);
-          totalCandidates += candidates.length;
-          const pendingRows: any[] = [];
-
-          for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex++) {
-            const p = candidates[candidateIndex];
-            if (shouldStopEarly(startedAt)) {
-              stoppedEarly = true;
-              remainingGroups = targetGroups.length - groupIndex - 1;
-              break;
-            }
-            const nowIso = new Date().toISOString();
-            const postUrl = normalizeFacebookUrl(p.post_url);
-            if (!postUrl) continue;
-
-            await randomDelay(POST_MIN_DELAY_MS, POST_MAX_DELAY_MS);
-            await page.goto(postUrl, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
-            await randomHumanPause(300, 800);
-            await humanScroll(page, randInt(1, 2));
-
-            const details = await extractPostDetails(page, p.fb_post_id);
-
-            const row: any = {
-              source_group_id: group.id,
-              fb_post_id: p.fb_post_id,
-              post_url: postUrl,
-              last_seen_at: nowIso,
-              raw_payload: {
-                post_url: postUrl,
-                scraped_at: nowIso,
-                post_created_at_raw: details.post_created_at_raw,
-              },
-            };
-
-            if (details.post_created_at) row.post_created_at = details.post_created_at;
-            if (details.content_text && details.content_text.length >= 2) row.content_text = details.content_text;
-            if (details.image_urls.length) row.image_urls = details.image_urls;
-
-            pendingRows.push(row);
-            if (pendingRows.length >= DB_BATCH_SIZE) {
-              const { inserted } = await upsertPosts(admin, pendingRows);
-              totalUpserted += inserted;
-              pendingRows.length = 0;
-            }
-          }
-
-          if (pendingRows.length) {
-            const { inserted } = await upsertPosts(admin, pendingRows);
-            totalUpserted += inserted;
-          }
-
-          if (stoppedEarly) {
-            break;
-          }
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error || "unknown_error");
-          groupErrors.push(`${group.group_name || group.id}：${message}`);
-          await sleep(Math.max(5000, MAX_DELAY_MS * 2));
-        }
-
-        if (stoppedEarly) break;
-        await randomDelay();
-      }
-    } finally {
-      await browser.close().catch(() => {});
+    if (targetGroups.length) {
+      after(async () => {
+        await triggerScrapeJobWorker(req.nextUrl.origin, job.id, job.job_token);
+      });
     }
-
-    const counts = await getFbAiStatusCounts(admin);
-    const durationMs = Date.now() - startedAt;
-    const baseMessage = stoppedEarly
-      ? `同步已在時間上限前先行回應，今次已寫入 ${totalUpserted} 筆貼文，尚餘 ${remainingGroups} 個群組待下次同步`
-      : groupErrors.length
-        ? `部分群組同步失敗：${groupErrors.join(" | ")}`
-        : `同步成功，已寫入 ${totalUpserted} 筆貼文，等待你在「FB 貼文 AI 過濾中心（Mock AI）」手動觸發過濾`;
 
     return NextResponse.json({
       ok: true,
-      mode: "live",
-      groups: totalGroups,
-      candidates: totalCandidates,
-      upserted: totalUpserted,
-      ai_status_counts: counts,
-      duration_ms: durationMs,
-      stopped_early: stoppedEarly,
-      remaining_groups: remainingGroups,
-      message: `${baseMessage}。${formatFbAiStatusCounts(counts)}。耗時 ${durationMs}ms。`,
-    } satisfies ScrapeSummary);
+      accepted: true,
+      job: serializeScrapeJob(job),
+      message: job.last_message,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error || "unknown_error");
     const stack = error instanceof Error ? error.stack : undefined;
