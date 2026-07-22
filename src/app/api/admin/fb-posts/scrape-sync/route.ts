@@ -10,7 +10,7 @@ import chromium from "@sparticuz/chromium";
 import puppeteer from "puppeteer-core";
 
 import { assertAdminServer } from "@/lib/auth/role";
-import { clampFbAiLimit, processPendingFbPosts } from "@/lib/fb-scraper/process-ai";
+import { formatFbAiStatusCounts, getFbAiStatusCounts, type FbAiStatusCounts } from "@/lib/fb-scraper/ai-status-stats";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 type ScrapeBody = {
@@ -25,10 +25,7 @@ type ScrapeSummary = {
   groups: number;
   candidates: number;
   upserted: number;
-  ai_processed?: number;
-  ai_done?: number;
-  ai_skipped?: number;
-  ai_failed?: number;
+  ai_status_counts?: FbAiStatusCounts;
   message?: string;
 };
 
@@ -371,18 +368,15 @@ async function runMockSync(admin: any, maxGroups: number): Promise<ScrapeSummary
   });
 
   await upsertPosts(admin, rows);
-  const aiResult = await processPendingFbPosts(admin, { limit: clampFbAiLimit(rows.length) });
+  const counts = await getFbAiStatusCounts(admin);
   return {
     ok: true,
     mode: "mock",
     groups: targetGroups.length,
     candidates: rows.length,
     upserted: rows.length,
-    ai_processed: aiResult.processed,
-    ai_done: aiResult.done,
-    ai_skipped: aiResult.skipped,
-    ai_failed: aiResult.failed,
-    message: `本地開發環境已使用 Mock 同步資料，AI 已處理 ${aiResult.processed} 筆。`,
+    ai_status_counts: counts,
+    message: `本地開發環境已使用 Mock 同步資料，貼文已寫入資料庫並維持 pending 待手動過濾。${formatFbAiStatusCounts(counts)}`,
   };
 }
 
@@ -725,9 +719,10 @@ export async function POST(req: NextRequest) {
       await browser.close().catch(() => {});
     }
 
-    const aiResult = totalUpserted
-      ? await processPendingFbPosts(admin, { limit: clampFbAiLimit(totalUpserted) })
-      : { processed: 0, done: 0, skipped: 0, failed: 0 };
+    const counts = await getFbAiStatusCounts(admin);
+    const baseMessage = groupErrors.length
+      ? `部分群組同步失敗：${groupErrors.join(" | ")}`
+      : `同步成功，已寫入 ${totalUpserted} 筆貼文，等待你在「FB 貼文 AI 過濾中心（Mock AI）」手動觸發過濾`;
 
     return NextResponse.json({
       ok: true,
@@ -735,13 +730,8 @@ export async function POST(req: NextRequest) {
       groups: totalGroups,
       candidates: totalCandidates,
       upserted: totalUpserted,
-      ai_processed: aiResult.processed,
-      ai_done: aiResult.done,
-      ai_skipped: aiResult.skipped,
-      ai_failed: aiResult.failed,
-      message: groupErrors.length
-        ? `部分群組同步失敗：${groupErrors.join(" | ")}`
-        : `同步成功，AI 已處理 ${aiResult.processed} 筆（待審批 ${aiResult.done} / 略過 ${aiResult.skipped} / 失敗 ${aiResult.failed}）`,
+      ai_status_counts: counts,
+      message: `${baseMessage}。${formatFbAiStatusCounts(counts)}`,
     } satisfies ScrapeSummary);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error || "unknown_error");
