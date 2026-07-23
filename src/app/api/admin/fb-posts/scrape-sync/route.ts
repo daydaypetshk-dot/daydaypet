@@ -17,6 +17,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 type ScrapeBody = {
   maxGroups?: number;
   maxPostsPerGroup?: number;
+  startIndex?: number;
 };
 
 type MonitoredGroup = { id: string; group_name: string; group_url: string };
@@ -65,6 +66,7 @@ type GroupProcessResult = {
   upserted: number;
   error: string | null;
 };
+type UpdateHeartbeat = (phase: string, detail?: string) => Promise<void>;
 type GroupExecutionContext = {
   jobId: string;
   groupIndex: number;
@@ -136,6 +138,7 @@ const POST_MAX_DELAY_MS = envNum("FB_SCRAPER_POST_MAX_DELAY_MS", 360);
 const SOFT_TIMEOUT_MS = envNum("FB_SCRAPER_SOFT_TIMEOUT_MS", 45_000);
 const GROUP_TIMEOUT_MS = clamp(envNum("FB_SCRAPER_GROUP_TIMEOUT_MS", 45_000), 5_000, 90_000);
 const HEARTBEAT_INTERVAL_MS = clamp(envNum("FB_SCRAPER_HEARTBEAT_INTERVAL_MS", 10_000), 5_000, 30_000);
+const JOB_GROUP_BATCH_SIZE = clamp(envNum("FB_SCRAPER_JOB_GROUP_BATCH_SIZE", 2), 1, 3);
 const STALE_JOB_MS = clamp(
   envNum("FB_SCRAPER_STALE_JOB_MS", Math.max(GROUP_TIMEOUT_MS + 60_000, HEARTBEAT_INTERVAL_MS * 4, 120_000)),
   Math.max(GROUP_TIMEOUT_MS + HEARTBEAT_INTERVAL_MS * 2, 60_000),
@@ -648,6 +651,26 @@ async function createScrapeJob(admin: any, payload: Record<string, unknown>) {
   return mapScrapeJobRow(data);
 }
 
+function buildJobToken(startIndex = 0) {
+  return `start:${Math.max(0, Math.floor(startIndex))}:${crypto.randomUUID()}`;
+}
+
+function getJobGroupOffset(job: FbScrapeJobRow) {
+  const match = String(job.job_token || "").match(/^start:(\d+):/);
+  const parsed = match ? Number(match[1]) : 0;
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function getJobBatchBounds(totalGroups: number, startIndex: number) {
+  const safeStart = clamp(startIndex, 0, Math.max(0, totalGroups));
+  const endIndex = Math.min(totalGroups, safeStart + JOB_GROUP_BATCH_SIZE);
+  return {
+    startIndex: safeStart,
+    endIndex,
+    batchSize: Math.max(0, endIndex - safeStart),
+  };
+}
+
 async function triggerScrapeJobWorker(origin: string, jobId: string, jobToken: string) {
   const url = `${origin.replace(/\/$/, "")}/api/admin/fb-posts/scrape-sync`;
   try {
@@ -668,6 +691,46 @@ async function triggerScrapeJobWorker(origin: string, jobId: string, jobToken: s
     const message = error instanceof Error ? error.message : String(error || "unknown_error");
     console.error("[FB Scrape Job] Worker trigger error:", message);
   }
+}
+
+async function enqueueNextScrapeJobBatch(
+  req: NextRequest,
+  admin: any,
+  currentJob: FbScrapeJobRow,
+  allGroups: MonitoredGroup[],
+  startIndex: number,
+) {
+  if (startIndex >= allGroups.length) return null;
+
+  const bounds = getJobBatchBounds(allGroups.length, startIndex);
+  const nextJob = await createScrapeJob(admin, {
+    requested_by_user_id: currentJob.requested_by_user_id,
+    job_token: buildJobToken(bounds.startIndex),
+    status: bounds.batchSize ? "queued" : "completed",
+    mode: currentJob.mode,
+    max_groups: bounds.batchSize,
+    max_posts_per_group: currentJob.max_posts_per_group,
+    total_groups: bounds.batchSize,
+    next_group_index: 0,
+    processed_groups: 0,
+    candidates: 0,
+    upserted: 0,
+    group_errors: [],
+    ai_status_counts: currentJob.ai_status_counts,
+    current_group_id: null,
+    current_group_name: null,
+    last_message: bounds.batchSize
+      ? `Facebook 背景同步下一批已排入佇列，準備處理第 ${bounds.startIndex + 1}-${bounds.endIndex}/${allGroups.length} 個群組。`
+      : "Facebook 背景同步沒有更多待處理群組。",
+    last_error: null,
+    finished_at: bounds.batchSize ? null : new Date().toISOString(),
+    last_heartbeat_at: bounds.batchSize ? null : new Date().toISOString(),
+  });
+
+  if (bounds.batchSize) {
+    await scheduleScrapeJobWorker(req, nextJob);
+  }
+  return nextJob;
 }
 
 async function runMockSync(admin: any, maxGroups: number): Promise<ScrapeSummary> {
@@ -1074,6 +1137,7 @@ async function scrapeSingleGroup(
   group: MonitoredGroup,
   maxPostsPerGroup: number,
   context: GroupExecutionContext,
+  updateHeartbeat?: UpdateHeartbeat,
 ): Promise<GroupProcessResult> {
   const url = buildChronologicalGroupUrl(group.group_url);
   if (!url) {
@@ -1081,6 +1145,7 @@ async function scrapeSingleGroup(
   }
 
   logGroupInfo(context, group, "OPEN_GROUP", `url=${url}`);
+  await updateHeartbeat?.("open_group", `url=${url}`);
   await page.goto(url, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
   if (await detectLoggedOut(page)) {
     throw new Error("FB_LOGIN_REQUIRED");
@@ -1088,22 +1153,30 @@ async function scrapeSingleGroup(
 
   await randomDelay();
   await page.evaluate(() => window.scrollTo(0, 0)).catch(() => {});
+  await updateHeartbeat?.("before_group_scroll");
   await humanScroll(page, Math.min(1, Math.max(1, SCROLL_PASSES)));
+  await updateHeartbeat?.("after_group_scroll");
 
   const candidates = await extractCandidatePosts(page, maxPostsPerGroup);
   logGroupInfo(context, group, "CANDIDATES_EXTRACTED", `count=${candidates.length}`);
+  await updateHeartbeat?.("candidates_extracted", `count=${candidates.length}`);
   const pendingRows: any[] = [];
 
-  for (const p of candidates) {
+  for (let candidateIndex = 0; candidateIndex < candidates.length; candidateIndex++) {
+    const p = candidates[candidateIndex];
     const nowIso = new Date().toISOString();
     const postUrl = normalizeFacebookUrl(p.post_url);
     if (!postUrl) continue;
 
+    await updateHeartbeat?.("before_post_open", `${candidateIndex + 1}/${candidates.length}`);
     await randomDelay(POST_MIN_DELAY_MS, POST_MAX_DELAY_MS);
     await page.goto(postUrl, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
     await randomHumanPause(180, 420);
+    await updateHeartbeat?.("after_post_open", `${candidateIndex + 1}/${candidates.length}`);
     await humanScroll(page, 1);
+    await updateHeartbeat?.("after_post_scroll", `${candidateIndex + 1}/${candidates.length}`);
     await expandPostBody(page);
+    await updateHeartbeat?.("after_expand_post", `${candidateIndex + 1}/${candidates.length}`);
 
     const details = await extractPostDetails(page, p.fb_post_id);
     const row: any = {
@@ -1122,9 +1195,11 @@ async function scrapeSingleGroup(
     row.content_text = details.content_text;
     if (details.image_urls.length) row.image_urls = details.image_urls;
     pendingRows.push(row);
+    await updateHeartbeat?.("post_parsed", `${candidateIndex + 1}/${candidates.length}`);
   }
 
   const { inserted } = await upsertPosts(admin, pendingRows);
+  await updateHeartbeat?.("upsert_done", `inserted=${inserted}`);
   logGroupInfo(context, group, "UPSERT_DONE", `candidates=${candidates.length} inserted=${inserted}`);
   return { candidates: candidates.length, upserted: inserted, error: null };
 }
@@ -1242,15 +1317,17 @@ async function startGroupHeartbeat(
 ) {
   let stopped = false;
   let inFlight = false;
-  const tick = async () => {
+  const tick = async (phase = "interval", detail?: string) => {
     if (stopped || inFlight) return;
     inFlight = true;
     try {
       await patchScrapeJob(admin, job.id, {
         last_heartbeat_at: new Date().toISOString(),
-        last_message: `背景同步進行中：正在處理第 ${context.groupIndex}/${totalGroups} 個群組「${getGroupDisplayName(group)}」`,
+        last_message: `背景同步進行中：正在處理第 ${context.groupIndex}/${totalGroups} 個群組「${getGroupDisplayName(group)}」${
+          detail ? ` (${detail})` : ""
+        }`,
       });
-      logGroupInfo(context, group, "HEARTBEAT", `interval=${HEARTBEAT_INTERVAL_MS}ms`);
+      logGroupInfo(context, group, "HEARTBEAT", `phase=${phase}${detail ? ` detail=${detail}` : ""}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error || "unknown_error");
       logGroupWarn(context, group, "HEARTBEAT_FAILED", message);
@@ -1259,14 +1336,19 @@ async function startGroupHeartbeat(
     }
   };
   const intervalId = setInterval(() => {
-    void tick();
+    void tick("interval", `interval=${HEARTBEAT_INTERVAL_MS}ms`);
   }, HEARTBEAT_INTERVAL_MS);
 
-  return async () => {
+  return {
+    updateHeartbeat: async (phase: string, detail?: string) => {
+      await tick(phase, detail);
+    },
+    stopHeartbeat: async () => {
     stopped = true;
     clearInterval(intervalId);
     if (!inFlight) return;
     await sleep(50);
+    },
   };
 }
 
@@ -1347,7 +1429,9 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
   }
 
   const groups = await listActiveGroups(admin);
-  const targetGroups = existingJob.max_groups > 0 ? groups.slice(0, existingJob.max_groups) : groups;
+  const jobOffset = getJobGroupOffset(existingJob);
+  const batchGroups = existingJob.max_groups > 0 ? groups.slice(jobOffset, jobOffset + existingJob.max_groups) : groups.slice(jobOffset);
+  const targetGroups = batchGroups;
   let job = await recoverStaleScrapeJob(req, admin, existingJob, targetGroups);
   if (job.total_groups !== targetGroups.length) {
     job = await patchScrapeJob(admin, job.id, { total_groups: targetGroups.length });
@@ -1409,11 +1493,11 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
     last_message: `背景同步進行中：正在處理第 ${job.next_group_index + 1}/${targetGroups.length} 個群組「${group.group_name}」`,
   });
   logGroupInfo(groupContext, group, "START", `timeout=${GROUP_TIMEOUT_MS}ms maxPosts=${maxPostsPerGroup}`);
-  const stopHeartbeat = await startGroupHeartbeat(admin, job, group, groupContext, targetGroups.length);
+  const { updateHeartbeat, stopHeartbeat } = await startGroupHeartbeat(admin, job, group, groupContext, targetGroups.length);
 
   try {
     const result = await withFacebookPage(cookies, async (page) =>
-      scrapeSingleGroup(page, admin, group, maxPostsPerGroup, groupContext),
+      scrapeSingleGroup(page, admin, group, maxPostsPerGroup, groupContext, updateHeartbeat),
       {
         timeoutMs: GROUP_TIMEOUT_MS,
         timeoutMessage: createGroupTimeoutMessage(group, GROUP_TIMEOUT_MS),
@@ -1457,6 +1541,13 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
 
     if (hasMore) {
       await scheduleScrapeJobWorker(req, updated);
+    } else if (jobOffset + targetGroups.length < groups.length) {
+      const nextBatch = await enqueueNextScrapeJobBatch(req, admin, updated, groups, jobOffset + targetGroups.length);
+      if (nextBatch) {
+        await patchScrapeJob(admin, updated.id, {
+          last_message: `背景同步完成本批 ${targetGroups.length} 個群組，下一批已排入佇列（第 ${jobOffset + targetGroups.length + 1}/${groups.length} 個群組開始）。`,
+        });
+      }
     }
 
     return NextResponse.json({ ok: true, job: serializeScrapeJob(updated) });
@@ -1529,6 +1620,13 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
     });
     if (hasMore) {
       await scheduleScrapeJobWorker(req, updated);
+    } else if (jobOffset + targetGroups.length < groups.length) {
+      const nextBatch = await enqueueNextScrapeJobBatch(req, admin, updated, groups, jobOffset + targetGroups.length);
+      if (nextBatch) {
+        await patchScrapeJob(admin, updated.id, {
+          last_message: `背景同步本批已結束，下一批已排入佇列（第 ${jobOffset + targetGroups.length + 1}/${groups.length} 個群組開始）。`,
+        });
+      }
     }
     return NextResponse.json({ ok: true, job: serializeScrapeJob(updated) });
   } finally {
@@ -1587,7 +1685,8 @@ export async function POST(req: NextRequest) {
     const activeJob = await getLatestScrapeJob(admin, true);
     if (activeJob) {
       const groups = await listActiveGroups(admin);
-      const targetGroups = activeJob.max_groups > 0 ? groups.slice(0, activeJob.max_groups) : groups;
+      const jobOffset = getJobGroupOffset(activeJob);
+      const targetGroups = activeJob.max_groups > 0 ? groups.slice(jobOffset, jobOffset + activeJob.max_groups) : groups.slice(jobOffset);
       const recoveredJob = await recoverStaleScrapeJob(req, admin, activeJob, targetGroups);
       return NextResponse.json({
         ok: true,
@@ -1610,15 +1709,17 @@ export async function POST(req: NextRequest) {
     }
 
     const groups = await listActiveGroups(admin);
-    const targetGroups = maxGroups > 0 ? groups.slice(0, maxGroups) : groups;
+    const requestedMaxGroups = maxGroups > 0 ? maxGroups : groups.length;
+    const boundedMaxGroups = clamp(requestedMaxGroups, 1, Math.max(1, JOB_GROUP_BATCH_SIZE));
+    const targetGroups = groups.slice(0, boundedMaxGroups);
     const counts = await getFbAiStatusCounts(admin);
     const nowIso = new Date().toISOString();
     const job = await createScrapeJob(admin, {
       requested_by_user_id: allowed.userId,
-      job_token: crypto.randomUUID(),
+      job_token: buildJobToken(Number.isFinite(Number(body.startIndex)) ? Number(body.startIndex) : 0),
       status: targetGroups.length ? "queued" : "completed",
       mode: isDevMockEnabled() && !cookies ? "mock" : "live",
-      max_groups: maxGroups,
+      max_groups: targetGroups.length,
       max_posts_per_group: maxPostsPerGroup,
       total_groups: targetGroups.length,
       next_group_index: 0,
@@ -1630,7 +1731,7 @@ export async function POST(req: NextRequest) {
       current_group_id: null,
       current_group_name: null,
       last_message: targetGroups.length
-        ? `Facebook 背景同步已啟動，準備處理 ${targetGroups.length} 個群組。`
+        ? `Facebook 背景同步已啟動，準備處理本批 ${targetGroups.length} 個群組（每批最多 ${JOB_GROUP_BATCH_SIZE} 個）。`
         : "目前沒有啟用中的 Facebook 監控群組。",
       last_error: null,
       finished_at: targetGroups.length ? null : nowIso,
