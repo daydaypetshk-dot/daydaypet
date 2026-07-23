@@ -131,10 +131,10 @@ const MAX_DELAY_MS = envNum("FB_SCRAPER_MAX_DELAY_MS", 4200);
 const SCROLL_PASSES = envNum("FB_SCRAPER_SCROLL_PASSES", 6);
 const NAV_TIMEOUT_MS = envNum("FB_SCRAPER_NAV_TIMEOUT_MS", 45_000);
 const DB_BATCH_SIZE = clamp(envNum("FB_SCRAPER_DB_BATCH_SIZE", 10), 1, 50);
-const POST_MIN_DELAY_MS = envNum("FB_SCRAPER_POST_MIN_DELAY_MS", 250);
-const POST_MAX_DELAY_MS = envNum("FB_SCRAPER_POST_MAX_DELAY_MS", 700);
+const POST_MIN_DELAY_MS = envNum("FB_SCRAPER_POST_MIN_DELAY_MS", 120);
+const POST_MAX_DELAY_MS = envNum("FB_SCRAPER_POST_MAX_DELAY_MS", 360);
 const SOFT_TIMEOUT_MS = envNum("FB_SCRAPER_SOFT_TIMEOUT_MS", 45_000);
-const GROUP_TIMEOUT_MS = clamp(envNum("FB_SCRAPER_GROUP_TIMEOUT_MS", 12_000), 5_000, 60_000);
+const GROUP_TIMEOUT_MS = clamp(envNum("FB_SCRAPER_GROUP_TIMEOUT_MS", 20_000), 5_000, 60_000);
 const STALE_JOB_MS = clamp(envNum("FB_SCRAPER_STALE_JOB_MS", Math.max(GROUP_TIMEOUT_MS + 15_000, 30_000)), GROUP_TIMEOUT_MS + 5_000, 300_000);
 const SKIP_GROUP_IDS = new Set(
   String(env("FB_SCRAPER_SKIP_GROUP_IDS", ""))
@@ -671,56 +671,119 @@ async function expandPostBody(page: any) {
     .catch(() => 0);
 }
 
+type FeedCandidatePost = {
+  fb_post_id: string;
+  post_url: string;
+  feed_index: number;
+  post_created_at: string | null;
+  post_created_at_raw: string | null;
+  is_pinned: boolean;
+  is_reshare: boolean;
+};
+type ExtractedPostDetails = {
+  content_text: string;
+  image_urls: string[];
+  post_created_at: string | null;
+  post_created_at_raw: string | null;
+  content_kind: "text" | "image_only" | "empty";
+};
+
 async function extractCandidatePosts(page: any, maxPostsPerGroup: number) {
   const raw = await page.evaluate((limit: number) => {
+    const norm = (value: unknown) => String(value || "").replace(/\s+/g, " ").trim();
     const isPostHref = (href: string) =>
       href.includes("/posts/") || href.includes("story_fbid=") || href.includes("permalink.php") || href.includes("/permalink/");
+    const pinnedRe = /(featured|pinned post|置頂|精選)/i;
+    const reshareRe = /(shared a post|shared .* post|reposted|分享了貼文|轉發了貼文|分享帖子|轉發帖子)/i;
 
     const articles = Array.from(document.querySelectorAll('div[role="article"]')) as HTMLElement[];
-    const rows: Array<{ post_url: string; feed_index: number }> = [];
+    const rows: Array<{
+      post_url: string;
+      feed_index: number;
+      post_created_at_raw: string | null;
+      is_pinned: boolean;
+      is_reshare: boolean;
+    }> = [];
 
     for (let index = 0; index < articles.length; index++) {
       const article = articles[index];
+      const rect = article.getBoundingClientRect();
+      if (rect.bottom < -200) continue;
+      if (rect.top > window.innerHeight * 6) break;
+
       const hrefs = Array.from(article.querySelectorAll("a[href]"))
         .map((anchor) => anchor.getAttribute("href") || "")
         .filter(Boolean);
       const hit = hrefs.find((href) => isPostHref(href));
       if (!hit) continue;
-      rows.push({ post_url: hit, feed_index: index });
-      if (rows.length >= limit * 3) break;
+
+      const timeNode = article.querySelector("time[datetime], abbr[title]") as HTMLElement | null;
+      const postCreatedAtRaw = timeNode
+        ? norm(timeNode.getAttribute("datetime") || timeNode.getAttribute("title") || timeNode.textContent || "")
+        : null;
+      const articleText = norm(article.innerText || article.textContent || "");
+      rows.push({
+        post_url: hit,
+        feed_index: index,
+        post_created_at_raw: postCreatedAtRaw || null,
+        is_pinned: pinnedRe.test(articleText),
+        is_reshare: reshareRe.test(articleText),
+      });
+      if (rows.length >= limit * 6) break;
     }
 
     return rows;
   }, maxPostsPerGroup);
 
-  const urls = new Set<string>();
-  const ranked = (raw as Array<{ post_url: string; feed_index: number }>).sort((a, b) => a.feed_index - b.feed_index);
-  for (const item of ranked) {
+  const dedupe = new Map<string, FeedCandidatePost>();
+  for (const item of raw as Array<{
+    post_url: string;
+    feed_index: number;
+    post_created_at_raw: string | null;
+    is_pinned: boolean;
+    is_reshare: boolean;
+  }>) {
     const normalized = normalizeFacebookUrl(item.post_url);
     if (!normalized) continue;
     if (!normalized.includes("facebook.com")) continue;
-    urls.add(normalized);
-    if (urls.size >= maxPostsPerGroup * 3) break;
+    const fbPostId = parseFbPostId(normalized);
+    if (!fbPostId) continue;
+    const existing = dedupe.get(fbPostId);
+    const candidate: FeedCandidatePost = {
+      fb_post_id: fbPostId,
+      post_url: normalized,
+      feed_index: item.feed_index,
+      post_created_at_raw: item.post_created_at_raw,
+      post_created_at: parseFacebookTimeToIso(item.post_created_at_raw || ""),
+      is_pinned: item.is_pinned,
+      is_reshare: item.is_reshare,
+    };
+    if (!existing || candidate.feed_index < existing.feed_index) {
+      dedupe.set(fbPostId, candidate);
+    }
   }
 
-  const list = Array.from(urls)
-    .map((post_url) => ({
-      fb_post_id: parseFbPostId(post_url),
-      post_url,
-    }))
-    .filter((p) => p.fb_post_id && p.post_url);
+  const ranked = Array.from(dedupe.values()).sort((a, b) => {
+    const aTime = a.post_created_at ? Date.parse(a.post_created_at) : Number.NaN;
+    const bTime = b.post_created_at ? Date.parse(b.post_created_at) : Number.NaN;
+    const aHasTime = Number.isFinite(aTime);
+    const bHasTime = Number.isFinite(bTime);
+    if (aHasTime && bHasTime && aTime !== bTime) return bTime - aTime;
+    if (aHasTime !== bHasTime) return aHasTime ? -1 : 1;
+    if (a.is_pinned !== b.is_pinned) return a.is_pinned ? 1 : -1;
+    if (a.is_reshare !== b.is_reshare) return a.is_reshare ? 1 : -1;
+    return a.feed_index - b.feed_index;
+  });
 
-  const seen = new Set<string>();
-  const deduped: Array<{ fb_post_id: string; post_url: string }> = [];
-  for (const item of list) {
-    const key = `${item.fb_post_id}:${item.post_url}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    deduped.push(item);
-    if (deduped.length >= maxPostsPerGroup) break;
-  }
+  const withoutPinnedAndReshare = ranked.filter((item) => !item.is_pinned && !item.is_reshare);
+  const withoutPinned = ranked.filter((item) => !item.is_pinned);
+  const finalList =
+    (withoutPinnedAndReshare.length ? withoutPinnedAndReshare : withoutPinned.length ? withoutPinned : ranked).slice(
+      0,
+      maxPostsPerGroup,
+    );
 
-  return deduped;
+  return finalList;
 }
 
 async function extractPostDetails(page: any, expectedFbPostId: string) {
@@ -731,12 +794,65 @@ async function extractPostDetails(page: any, expectedFbPostId: string) {
     const actionTextRe = /^(like|comment|share|send|reply|follow|more|most relevant|view more comments|write a comment|leave a comment|commenting as|讚好|留言|回覆|分享|發送|最相關|查看更多留言|寫留言|發表留言)$/i;
     const commentBoundaryRe = /(most relevant|all comments|view more comments|write a comment|leave a comment|commenting as|comments|replies|最相關|所有留言|查看更多留言|寫留言|發表留言|留言|回覆)/i;
     const imageAltRe = /(profile picture|avatar|emoji|sticker|icon|reaction|貼圖|頭像|個人檔案相片|表情)/i;
+    const imageOnlyLabelRe = /(photo|photos|image|images|相片|照片|圖片)/i;
 
     const hasPostHref = (href: string) => postHrefRe.test(String(href || ""));
     const getPostLinks = (root: ParentNode) =>
       Array.from(root.querySelectorAll("a[href]"))
         .map((anchor: any) => anchor.getAttribute("href") || "")
         .filter((href: string) => hasPostHref(href));
+    const isCommentArea = (node: Element | null) =>
+      Boolean(node?.closest('[aria-label*="comment" i], [aria-label*="留言"], [role="textbox"], form, ul[aria-label*="comment" i]'));
+    const collectImageCandidates = (rootNode: ParentNode, imgSet: Set<string>) => {
+      const pushImage = (raw: string, width = 0, height = 0, alt = "") => {
+        const src = String(raw || "").trim();
+        if (!src) return;
+        if (src.startsWith("data:") || src.startsWith("blob:")) return;
+        if (!/(fbcdn|scontent)\./i.test(src)) return;
+        if (alt && imageAltRe.test(alt)) return;
+        if (width && height && width < 120 && height < 120) return;
+        imgSet.add(src);
+      };
+      const imgs = Array.from(rootNode.querySelectorAll("img")) as any[];
+      for (const img of imgs) {
+        if (isCommentArea(img)) continue;
+        const srcCandidates = [
+          img.currentSrc,
+          img.src,
+          img.getAttribute("src"),
+          img.getAttribute("data-src"),
+          img.getAttribute("data-original"),
+          img.getAttribute("data-imgsrc"),
+          img.getAttribute("data-visualcompletion"),
+        ]
+          .map((item: string) => String(item || "").trim())
+          .filter(Boolean);
+        const srcSet = String(img.getAttribute("srcset") || "").trim();
+        if (srcSet) {
+          for (const part of srcSet.split(",")) {
+            const candidate = part.trim().split(/\s+/)[0];
+            if (candidate) srcCandidates.push(candidate);
+          }
+        }
+        const w = Number(img.naturalWidth || img.width || 0);
+        const h = Number(img.naturalHeight || img.height || 0);
+        const alt = String(img.getAttribute("alt") || "").trim();
+        for (const candidate of srcCandidates) {
+          pushImage(candidate, w, h, alt);
+        }
+        if (imgSet.size >= 12) break;
+      }
+      if (imgSet.size < 12) {
+        const styled = Array.from(rootNode.querySelectorAll('[style*="background-image"]')) as HTMLElement[];
+        for (const node of styled) {
+          if (isCommentArea(node)) continue;
+          const style = String(node.getAttribute("style") || "");
+          const match = style.match(/background-image\s*:\s*url\((['"]?)(https?:\/\/[^)'"]+)\1\)/i);
+          if (match?.[2]) pushImage(match[2]);
+          if (imgSet.size >= 12) break;
+        }
+      }
+    };
 
     const scoreArticle = (el: any) => {
       const txtLen = (el.innerText || "").trim().length;
@@ -782,11 +898,19 @@ async function extractPostDetails(page: any, expectedFbPostId: string) {
 
     const article = pickArticle() as any;
     const root = article || document;
+    const lightbox =
+      (Array.from(document.querySelectorAll('[role="dialog"]')) as HTMLElement[])
+        .filter((dialog) => !isCommentArea(dialog))
+        .sort((a, b) => {
+          const aArea = Math.max(0, a.clientWidth || 0) * Math.max(0, a.clientHeight || 0);
+          const bArea = Math.max(0, b.clientWidth || 0) * Math.max(0, b.clientHeight || 0);
+          return bArea - aArea;
+        })[0] || null;
 
     const textFromNode = (node: Element | null) => norm((node as any)?.innerText || (node as any)?.textContent || "");
     const collectBodyNodes = () =>
       (Array.from(root.querySelectorAll(bodySelector)) as Element[])
-        .filter((node) => !node.closest('[aria-label*="comment" i], [aria-label*="留言"], [role="textbox"], form'))
+        .filter((node) => !isCommentArea(node))
         .map((node) => textFromNode(node))
         .filter((text) => text && text.length >= 2);
 
@@ -802,7 +926,7 @@ async function extractPostDetails(page: any, expectedFbPostId: string) {
           continue;
         }
         if (hitBoundary) continue;
-        if (node.closest('[aria-label*="comment" i], [aria-label*="留言"], [role="textbox"], form')) continue;
+        if (isCommentArea(node)) continue;
         if (actionTextRe.test(text)) continue;
         if (text.length < 8 || text.length > 2000) continue;
         if (blocks.includes(text)) continue;
@@ -814,54 +938,14 @@ async function extractPostDetails(page: any, expectedFbPostId: string) {
 
     let contentText = collectBodyNodes().join("\n\n");
     if (!contentText) {
-      contentText = norm(collectFallbackBlocks().join("\n"));
+      const fallbackBlocks = collectFallbackBlocks();
+      contentText = fallbackBlocks.length ? norm(fallbackBlocks.join("\n")) : "";
     }
 
     const imgSet = new Set<string>();
-    const pushImage = (raw: string, width = 0, height = 0, alt = "") => {
-      const src = String(raw || "").trim();
-      if (!src) return;
-      if (src.startsWith("data:") || src.startsWith("blob:")) return;
-      if (!/(fbcdn|scontent)\./i.test(src)) return;
-      if (alt && imageAltRe.test(alt)) return;
-      if (width && height && width < 160 && height < 160) return;
-      imgSet.add(src);
-    };
-    const imgs = Array.from(root.querySelectorAll("img")) as any[];
-    for (const img of imgs) {
-      const srcCandidates = [
-        img.currentSrc,
-        img.src,
-        img.getAttribute("src"),
-        img.getAttribute("data-src"),
-        img.getAttribute("data-original"),
-        img.getAttribute("data-imgsrc"),
-      ]
-        .map((item: string) => String(item || "").trim())
-        .filter(Boolean);
-      const srcSet = String(img.getAttribute("srcset") || "").trim();
-      if (srcSet) {
-        for (const part of srcSet.split(",")) {
-          const candidate = part.trim().split(/\s+/)[0];
-          if (candidate) srcCandidates.push(candidate);
-        }
-      }
-      const w = Number(img.naturalWidth || 0);
-      const h = Number(img.naturalHeight || 0);
-      const alt = String(img.getAttribute("alt") || "").trim();
-      for (const candidate of srcCandidates) {
-        pushImage(candidate, w, h, alt);
-      }
-      if (imgSet.size >= 12) break;
-    }
-    if (imgSet.size < 12) {
-      const styled = Array.from(root.querySelectorAll('[style*="background-image"]')) as HTMLElement[];
-      for (const node of styled) {
-        const style = String(node.getAttribute("style") || "");
-        const match = style.match(/background-image\s*:\s*url\((['"]?)(https?:\/\/[^)'"]+)\1\)/i);
-        if (match?.[2]) pushImage(match[2]);
-        if (imgSet.size >= 12) break;
-      }
+    collectImageCandidates(root, imgSet);
+    if (lightbox && imgSet.size < 12) {
+      collectImageCandidates(lightbox, imgSet);
     }
 
     const pickTimeRaw = () => {
@@ -869,15 +953,34 @@ async function extractPostDetails(page: any, expectedFbPostId: string) {
       if (abbr) return abbr.getAttribute("title") || abbr.textContent || "";
       const time = root.querySelector("time[datetime]") as any;
       if (time) return time.getAttribute("datetime") || time.textContent || "";
+      const lightboxTime = lightbox?.querySelector("abbr[title], time[datetime]") as any;
+      if (lightboxTime) {
+        return (
+          lightboxTime.getAttribute?.("datetime") ||
+          lightboxTime.getAttribute?.("title") ||
+          lightboxTime.textContent ||
+          ""
+        );
+      }
       return "";
     };
 
     const postCreatedAtRaw = norm(pickTimeRaw());
+    const hasImageSignal =
+      imgSet.size > 0 ||
+      imageOnlyLabelRe.test(textFromNode(root.querySelector('[aria-label*="photo" i], [aria-label*="圖片"], [aria-label*="相片"]')));
+    const contentKind = contentText
+      ? "text"
+      : hasImageSignal
+        ? "image_only"
+        : "empty";
+    const normalizedContentText = contentText || (contentKind === "image_only" ? "[圖片貼文]" : "");
 
     return {
-      content_text: norm(contentText),
+      content_text: norm(normalizedContentText),
       image_urls: Array.from(imgSet),
       post_created_at_raw: postCreatedAtRaw,
+      content_kind: contentKind,
     };
   }, expectedFbPostId);
 
@@ -885,13 +988,15 @@ async function extractPostDetails(page: any, expectedFbPostId: string) {
   const imageUrls = Array.isArray((details as any)?.image_urls) ? (details as any).image_urls.map(String).filter(Boolean) : [];
   const rawTime = String((details as any)?.post_created_at_raw || "").trim();
   const postCreatedAt = parseFacebookTimeToIso(rawTime);
+  const contentKind = String((details as any)?.content_kind || "").trim();
 
   return {
-    content_text: contentText || null,
+    content_text: contentText || (contentKind === "image_only" ? "[圖片貼文]" : ""),
     image_urls: imageUrls,
     post_created_at: postCreatedAt,
     post_created_at_raw: rawTime || null,
-  };
+    content_kind: contentKind === "image_only" ? "image_only" : contentText ? "text" : "empty",
+  } as ExtractedPostDetails;
 }
 
 async function scrapeSingleGroup(
@@ -913,7 +1018,8 @@ async function scrapeSingleGroup(
   }
 
   await randomDelay();
-  await humanScroll(page);
+  await page.evaluate(() => window.scrollTo(0, 0)).catch(() => {});
+  await humanScroll(page, Math.min(1, Math.max(1, SCROLL_PASSES)));
 
   const candidates = await extractCandidatePosts(page, maxPostsPerGroup);
   logGroupInfo(context, group, "CANDIDATES_EXTRACTED", `count=${candidates.length}`);
@@ -926,8 +1032,8 @@ async function scrapeSingleGroup(
 
     await randomDelay(POST_MIN_DELAY_MS, POST_MAX_DELAY_MS);
     await page.goto(postUrl, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
-    await randomHumanPause(300, 800);
-    await humanScroll(page, randInt(1, 2));
+    await randomHumanPause(180, 420);
+    await humanScroll(page, 1);
     await expandPostBody(page);
 
     const details = await extractPostDetails(page, p.fb_post_id);
@@ -944,7 +1050,7 @@ async function scrapeSingleGroup(
     };
 
     if (details.post_created_at) row.post_created_at = details.post_created_at;
-    if (details.content_text && details.content_text.length >= 2) row.content_text = details.content_text;
+    row.content_text = details.content_text;
     if (details.image_urls.length) row.image_urls = details.image_urls;
     pendingRows.push(row);
   }
