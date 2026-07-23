@@ -134,8 +134,13 @@ const DB_BATCH_SIZE = clamp(envNum("FB_SCRAPER_DB_BATCH_SIZE", 10), 1, 50);
 const POST_MIN_DELAY_MS = envNum("FB_SCRAPER_POST_MIN_DELAY_MS", 120);
 const POST_MAX_DELAY_MS = envNum("FB_SCRAPER_POST_MAX_DELAY_MS", 360);
 const SOFT_TIMEOUT_MS = envNum("FB_SCRAPER_SOFT_TIMEOUT_MS", 45_000);
-const GROUP_TIMEOUT_MS = clamp(envNum("FB_SCRAPER_GROUP_TIMEOUT_MS", 30_000), 5_000, 60_000);
-const STALE_JOB_MS = clamp(envNum("FB_SCRAPER_STALE_JOB_MS", Math.max(GROUP_TIMEOUT_MS + 15_000, 30_000)), GROUP_TIMEOUT_MS + 5_000, 300_000);
+const GROUP_TIMEOUT_MS = clamp(envNum("FB_SCRAPER_GROUP_TIMEOUT_MS", 45_000), 5_000, 90_000);
+const HEARTBEAT_INTERVAL_MS = clamp(envNum("FB_SCRAPER_HEARTBEAT_INTERVAL_MS", 10_000), 5_000, 30_000);
+const STALE_JOB_MS = clamp(
+  envNum("FB_SCRAPER_STALE_JOB_MS", Math.max(GROUP_TIMEOUT_MS + 60_000, HEARTBEAT_INTERVAL_MS * 4, 120_000)),
+  Math.max(GROUP_TIMEOUT_MS + HEARTBEAT_INTERVAL_MS * 2, 60_000),
+  300_000,
+);
 const SKIP_GROUP_IDS = new Set(
   String(env("FB_SCRAPER_SKIP_GROUP_IDS", ""))
     .split(/[\r\n,]+/)
@@ -1222,7 +1227,47 @@ function getTimestampAgeMs(iso: string | null) {
 
 function isJobStale(job: FbScrapeJobRow) {
   if (job.status !== "queued" && job.status !== "running") return false;
+  if (job.status === "running" && job.current_group_id) {
+    return getTimestampAgeMs(getJobReferenceTime(job)) >= Math.max(STALE_JOB_MS, GROUP_TIMEOUT_MS + HEARTBEAT_INTERVAL_MS * 2);
+  }
   return getTimestampAgeMs(getJobReferenceTime(job)) >= STALE_JOB_MS;
+}
+
+async function startGroupHeartbeat(
+  admin: any,
+  job: FbScrapeJobRow,
+  group: MonitoredGroup,
+  context: GroupExecutionContext,
+  totalGroups: number,
+) {
+  let stopped = false;
+  let inFlight = false;
+  const tick = async () => {
+    if (stopped || inFlight) return;
+    inFlight = true;
+    try {
+      await patchScrapeJob(admin, job.id, {
+        last_heartbeat_at: new Date().toISOString(),
+        last_message: `背景同步進行中：正在處理第 ${context.groupIndex}/${totalGroups} 個群組「${getGroupDisplayName(group)}」`,
+      });
+      logGroupInfo(context, group, "HEARTBEAT", `interval=${HEARTBEAT_INTERVAL_MS}ms`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error || "unknown_error");
+      logGroupWarn(context, group, "HEARTBEAT_FAILED", message);
+    } finally {
+      inFlight = false;
+    }
+  };
+  const intervalId = setInterval(() => {
+    void tick();
+  }, HEARTBEAT_INTERVAL_MS);
+
+  return async () => {
+    stopped = true;
+    clearInterval(intervalId);
+    if (!inFlight) return;
+    await sleep(50);
+  };
 }
 
 function didJobMovePastGroup(job: FbScrapeJobRow | null, groupIndex: number, groupId: string) {
@@ -1364,6 +1409,7 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
     last_message: `背景同步進行中：正在處理第 ${job.next_group_index + 1}/${targetGroups.length} 個群組「${group.group_name}」`,
   });
   logGroupInfo(groupContext, group, "START", `timeout=${GROUP_TIMEOUT_MS}ms maxPosts=${maxPostsPerGroup}`);
+  const stopHeartbeat = await startGroupHeartbeat(admin, job, group, groupContext, targetGroups.length);
 
   try {
     const result = await withFacebookPage(cookies, async (page) =>
@@ -1485,6 +1531,8 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
       await scheduleScrapeJobWorker(req, updated);
     }
     return NextResponse.json({ ok: true, job: serializeScrapeJob(updated) });
+  } finally {
+    await stopHeartbeat();
   }
 }
 
