@@ -135,6 +135,21 @@ const POST_MIN_DELAY_MS = envNum("FB_SCRAPER_POST_MIN_DELAY_MS", 250);
 const POST_MAX_DELAY_MS = envNum("FB_SCRAPER_POST_MAX_DELAY_MS", 700);
 const SOFT_TIMEOUT_MS = envNum("FB_SCRAPER_SOFT_TIMEOUT_MS", 45_000);
 const GROUP_TIMEOUT_MS = clamp(envNum("FB_SCRAPER_GROUP_TIMEOUT_MS", 12_000), 5_000, 60_000);
+const STALE_JOB_MS = clamp(envNum("FB_SCRAPER_STALE_JOB_MS", Math.max(GROUP_TIMEOUT_MS + 15_000, 30_000)), GROUP_TIMEOUT_MS + 5_000, 300_000);
+const SKIP_GROUP_IDS = new Set(
+  String(env("FB_SCRAPER_SKIP_GROUP_IDS", ""))
+    .split(/[\r\n,]+/)
+    .map((item) => item.trim().toLowerCase())
+    .filter(Boolean),
+);
+const SKIP_GROUP_NAMES = String(env("FB_SCRAPER_SKIP_GROUP_NAMES", ""))
+  .split(/[\r\n,]+/)
+  .map((item) => item.trim().toLowerCase())
+  .filter(Boolean);
+const SKIP_GROUP_URL_PATTERNS = String(env("FB_SCRAPER_SKIP_GROUP_URLS", ""))
+  .split(/[\r\n,]+/)
+  .map((item) => item.trim().toLowerCase())
+  .filter(Boolean);
 
 function isDevMockEnabled() {
   return process.env.NODE_ENV !== "production" && env("FB_SCRAPER_ENABLE_DEV_MOCK", "1") === "1";
@@ -286,6 +301,16 @@ function getGroupDisplayName(group: MonitoredGroup) {
   return String(group.group_name || group.id || "unknown_group").trim() || "unknown_group";
 }
 
+function getGroupSkipReason(group: MonitoredGroup) {
+  const id = String(group.id || "").trim().toLowerCase();
+  const name = String(group.group_name || "").trim().toLowerCase();
+  const url = String(group.group_url || "").trim().toLowerCase();
+  if (id && SKIP_GROUP_IDS.has(id)) return `id=${group.id}`;
+  if (name && SKIP_GROUP_NAMES.some((pattern) => name.includes(pattern))) return `name=${group.group_name}`;
+  if (url && SKIP_GROUP_URL_PATTERNS.some((pattern) => url.includes(pattern))) return `url=${group.group_url}`;
+  return null;
+}
+
 function getGroupLogPrefix(context: GroupExecutionContext, group: MonitoredGroup) {
   return `[FB Scrape Job ${context.jobId}] [Group ${context.groupIndex}/${context.totalGroups}] ${getGroupDisplayName(group)}`;
 }
@@ -406,7 +431,15 @@ async function listActiveGroups(admin: any) {
       group_name: String(row.group_name || "").trim(),
       group_url: String(row.group_url || "").trim(),
     }))
-    .filter((row: MonitoredGroup) => row.id && row.group_url);
+    .filter((row: MonitoredGroup) => row.id && row.group_url)
+    .filter((row: MonitoredGroup) => {
+      const reason = getGroupSkipReason(row);
+      if (reason) {
+        console.warn(`[FB Scraper] Skip blacklisted group: ${getGroupDisplayName(row)} | ${reason}`);
+        return false;
+      }
+      return true;
+    });
 }
 
 function chunkRows<T>(rows: T[], size: number) {
@@ -906,6 +939,83 @@ async function finalizeScrapeJob(admin: any, job: FbScrapeJobRow, status: Extrac
   });
 }
 
+function getJobReferenceTime(job: FbScrapeJobRow) {
+  return job.last_heartbeat_at || job.started_at || job.requested_at || job.updated_at || null;
+}
+
+function getTimestampAgeMs(iso: string | null) {
+  if (!iso) return Number.POSITIVE_INFINITY;
+  const parsed = Date.parse(iso);
+  if (!Number.isFinite(parsed)) return Number.POSITIVE_INFINITY;
+  return Date.now() - parsed;
+}
+
+function isJobStale(job: FbScrapeJobRow) {
+  if (job.status !== "queued" && job.status !== "running") return false;
+  return getTimestampAgeMs(getJobReferenceTime(job)) >= STALE_JOB_MS;
+}
+
+function didJobMovePastGroup(job: FbScrapeJobRow | null, groupIndex: number, groupId: string) {
+  if (!job) return true;
+  if (job.status === "completed" || job.status === "failed") return true;
+  if (job.next_group_index !== groupIndex) return true;
+  if (job.current_group_id && String(job.current_group_id) !== String(groupId)) return true;
+  return false;
+}
+
+async function scheduleScrapeJobWorker(req: NextRequest, job: FbScrapeJobRow) {
+  after(async () => {
+    await triggerScrapeJobWorker(req.nextUrl.origin, job.id, job.job_token);
+  });
+}
+
+async function recoverStaleScrapeJob(req: NextRequest, admin: any, job: FbScrapeJobRow, targetGroups: MonitoredGroup[]) {
+  if (!isJobStale(job)) return job;
+
+  const staleMs = getTimestampAgeMs(getJobReferenceTime(job));
+  if (job.status === "queued") {
+    console.warn(`[FB Scrape Job ${job.id}] Watchdog detected stale queued job | age=${staleMs}ms`);
+    const restarted = await patchScrapeJob(admin, job.id, {
+      last_message: `背景同步 watchdog 偵測到 worker 未啟動（>${STALE_JOB_MS}ms），正在重新觸發。`,
+      last_error: `queued worker stale for ${staleMs}ms`,
+      current_group_id: null,
+      current_group_name: null,
+      last_heartbeat_at: new Date().toISOString(),
+    });
+    await scheduleScrapeJobWorker(req, restarted);
+    return restarted;
+  }
+
+  const currentGroup = targetGroups[job.next_group_index] ?? null;
+  const currentGroupName = currentGroup?.group_name || job.current_group_name || currentGroup?.id || job.current_group_id || `index_${job.next_group_index + 1}`;
+  console.warn(`[FB Scrape Job ${job.id}] Watchdog skipping stale group | group=${currentGroupName} age=${staleMs}ms`);
+  const counts = await getFbAiStatusCounts(admin);
+  const nextGroupIndex = Math.min(job.next_group_index + 1, targetGroups.length);
+  const processedGroups = Math.min(job.processed_groups + 1, targetGroups.length);
+  const hasMore = nextGroupIndex < targetGroups.length;
+  const nextGroup = hasMore ? targetGroups[nextGroupIndex] : null;
+  const skipMessage = `watchdog 偵測群組 worker 逾時/中斷（>${STALE_JOB_MS}ms），已自動略過`;
+  const updated = await patchScrapeJob(admin, job.id, {
+    status: hasMore ? "running" : "completed",
+    processed_groups: processedGroups,
+    next_group_index: nextGroupIndex,
+    group_errors: [...job.group_errors, `${currentGroupName}：${skipMessage}`].slice(-50),
+    ai_status_counts: counts,
+    current_group_id: nextGroup?.id ?? null,
+    current_group_name: nextGroup?.group_name ?? null,
+    last_error: `${currentGroupName}：${skipMessage}`,
+    last_heartbeat_at: new Date().toISOString(),
+    finished_at: hasMore ? null : new Date().toISOString(),
+    last_message: hasMore
+      ? `背景同步 watchdog 已略過群組「${currentGroupName}」，並繼續處理第 ${nextGroupIndex + 1}/${targetGroups.length} 個群組。`
+      : `背景同步完成，但 watchdog 已略過最後一個卡住的群組。${formatFbAiStatusCounts(counts)}`,
+  });
+  if (hasMore) {
+    await scheduleScrapeJobWorker(req, updated);
+  }
+  return updated;
+}
+
 async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: string) {
   const admin = supabaseAdmin();
   const existingJob = await getScrapeJobById(admin, jobId);
@@ -919,7 +1029,7 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
 
   const groups = await listActiveGroups(admin);
   const targetGroups = existingJob.max_groups > 0 ? groups.slice(0, existingJob.max_groups) : groups;
-  let job = existingJob;
+  let job = await recoverStaleScrapeJob(req, admin, existingJob, targetGroups);
   if (job.total_groups !== targetGroups.length) {
     job = await patchScrapeJob(admin, job.id, { total_groups: targetGroups.length });
   }
@@ -995,17 +1105,25 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
       "SUCCESS",
       `duration=${Date.now() - groupStartedAt}ms candidates=${result.candidates} upserted=${result.upserted}`,
     );
+    const writableJob = await getScrapeJobById(admin, job.id);
+    if (didJobMovePastGroup(writableJob, job.next_group_index, group.id)) {
+      logGroupWarn(groupContext, group, "STALE_RESULT_IGNORED", "watchdog 已接手或工作已前進，略過舊 worker 寫回");
+      return NextResponse.json({ ok: true, job: writableJob ? serializeScrapeJob(writableJob) : null });
+    }
+    if (!writableJob) {
+      return NextResponse.json({ ok: true, job: null });
+    }
     const counts = await getFbAiStatusCounts(admin);
     const nextGroupIndex = job.next_group_index + 1;
     const processedGroups = job.processed_groups + 1;
     const hasMore = nextGroupIndex < targetGroups.length;
     const nextGroup = hasMore ? targetGroups[nextGroupIndex] : null;
-    const updated = await patchScrapeJob(admin, job.id, {
+    const updated = await patchScrapeJob(admin, writableJob.id, {
       status: hasMore ? "running" : "completed",
       processed_groups: processedGroups,
       next_group_index: nextGroupIndex,
-      candidates: job.candidates + result.candidates,
-      upserted: job.upserted + result.upserted,
+      candidates: writableJob.candidates + result.candidates,
+      upserted: writableJob.upserted + result.upserted,
       ai_status_counts: counts,
       current_group_id: nextGroup?.id ?? null,
       current_group_name: nextGroup?.group_name ?? null,
@@ -1013,14 +1131,12 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
       last_heartbeat_at: new Date().toISOString(),
       finished_at: hasMore ? null : new Date().toISOString(),
       last_message: hasMore
-        ? `背景同步進行中：已完成 ${processedGroups}/${targetGroups.length} 個群組，累計寫入 ${job.upserted + result.upserted} 筆貼文`
-        : `背景同步完成：共完成 ${processedGroups} 個群組，寫入 ${job.upserted + result.upserted} 筆貼文。${formatFbAiStatusCounts(counts)}`,
+        ? `背景同步進行中：已完成 ${processedGroups}/${targetGroups.length} 個群組，累計寫入 ${writableJob.upserted + result.upserted} 筆貼文`
+        : `背景同步完成：共完成 ${processedGroups} 個群組，寫入 ${writableJob.upserted + result.upserted} 筆貼文。${formatFbAiStatusCounts(counts)}`,
     });
 
     if (hasMore) {
-      after(async () => {
-        await triggerScrapeJobWorker(req.nextUrl.origin, updated.id, updated.job_token);
-      });
+      await scheduleScrapeJobWorker(req, updated);
     }
 
     return NextResponse.json({ ok: true, job: serializeScrapeJob(updated) });
@@ -1054,14 +1170,22 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
       return NextResponse.json({ ok: true, job: serializeScrapeJob(failed) });
     }
 
+    const writableJob = await getScrapeJobById(admin, job.id);
+    if (didJobMovePastGroup(writableJob, job.next_group_index, group.id)) {
+      logGroupWarn(groupContext, group, "STALE_ERROR_IGNORED", "watchdog 已接手或工作已前進，略過舊 worker 失敗寫回");
+      return NextResponse.json({ ok: true, job: writableJob ? serializeScrapeJob(writableJob) : null });
+    }
+    if (!writableJob) {
+      return NextResponse.json({ ok: true, job: null });
+    }
     const counts = await getFbAiStatusCounts(admin);
     const skipMessage = isGroupTimeout ? `群組處理逾時（>${GROUP_TIMEOUT_MS}ms），已自動跳過` : message;
-    const groupErrors = [...job.group_errors, `${group.group_name || group.id}：${skipMessage}`].slice(-50);
-    const nextGroupIndex = job.next_group_index + 1;
-    const processedGroups = job.processed_groups + 1;
+    const groupErrors = [...writableJob.group_errors, `${group.group_name || group.id}：${skipMessage}`].slice(-50);
+    const nextGroupIndex = writableJob.next_group_index + 1;
+    const processedGroups = writableJob.processed_groups + 1;
     const hasMore = nextGroupIndex < targetGroups.length;
     const nextGroup = hasMore ? targetGroups[nextGroupIndex] : null;
-    const updated = await patchScrapeJob(admin, job.id, {
+    const updated = await patchScrapeJob(admin, writableJob.id, {
       status: hasMore ? "running" : "completed",
       processed_groups: processedGroups,
       next_group_index: nextGroupIndex,
@@ -1077,9 +1201,7 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
         : `背景同步完成，但有 ${groupErrors.length} 個群組失敗。${formatFbAiStatusCounts(counts)}`,
     });
     if (hasMore) {
-      after(async () => {
-        await triggerScrapeJobWorker(req.nextUrl.origin, updated.id, updated.job_token);
-      });
+      await scheduleScrapeJobWorker(req, updated);
     }
     return NextResponse.json({ ok: true, job: serializeScrapeJob(updated) });
   }
@@ -1092,9 +1214,15 @@ export async function GET(req: NextRequest) {
 
     const admin = supabaseAdmin();
     const jobId = String(req.nextUrl.searchParams.get("jobId") || "").trim();
-    const job = jobId
+    const rawJob = jobId
       ? await getScrapeJobById(admin, jobId)
       : (await getLatestScrapeJob(admin, true)) || (await getLatestScrapeJob(admin, false));
+    if (!rawJob) {
+      return NextResponse.json({ ok: true, job: null });
+    }
+    const groups = await listActiveGroups(admin);
+    const targetGroups = rawJob.max_groups > 0 ? groups.slice(0, rawJob.max_groups) : groups;
+    const job = await recoverStaleScrapeJob(req, admin, rawJob, targetGroups);
 
     return NextResponse.json({ ok: true, job: job ? serializeScrapeJob(job) : null });
   } catch (error) {
@@ -1129,11 +1257,14 @@ export async function POST(req: NextRequest) {
     const admin = supabaseAdmin();
     const activeJob = await getLatestScrapeJob(admin, true);
     if (activeJob) {
+      const groups = await listActiveGroups(admin);
+      const targetGroups = activeJob.max_groups > 0 ? groups.slice(0, activeJob.max_groups) : groups;
+      const recoveredJob = await recoverStaleScrapeJob(req, admin, activeJob, targetGroups);
       return NextResponse.json({
         ok: true,
         accepted: true,
-        job: serializeScrapeJob(activeJob),
-        message: activeJob.last_message || "已有 Facebook 背景同步工作正在執行。",
+        job: serializeScrapeJob(recoveredJob),
+        message: recoveredJob.last_message || "已有 Facebook 背景同步工作正在執行。",
       });
     }
 
@@ -1178,9 +1309,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (targetGroups.length) {
-      after(async () => {
-        await triggerScrapeJobWorker(req.nextUrl.origin, job.id, job.job_token);
-      });
+      await scheduleScrapeJobWorker(req, job);
     }
 
     return NextResponse.json({
