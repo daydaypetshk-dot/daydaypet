@@ -232,6 +232,18 @@ const normalizeGroupUrl = (input) => {
   return url;
 };
 
+const buildChronologicalGroupUrl = (input) => {
+  const normalized = normalizeGroupUrl(input);
+  if (!normalized) return "";
+  try {
+    const url = new URL(normalized);
+    url.searchParams.set("sorting_setting", "CHRONOLOGICAL");
+    return url.toString();
+  } catch {
+    return normalized;
+  }
+};
+
 function parseFacebookTimeToIso(raw) {
   const text = String(raw || "").trim();
   if (!text) return null;
@@ -333,26 +345,52 @@ async function upsertPosts(admin, rows) {
   return { inserted: rows.length };
 }
 
+async function expandPostBody(page) {
+  await page
+    .evaluate(() => {
+      const expandRe = /^(see more|see translation|查看更多|顯示更多|更多|展開)$/i;
+      const blockRe = /(comment|comments|reply|replies|留言|回覆|評論|查看更多留言|更多留言)/i;
+      const buttons = Array.from(document.querySelectorAll('div[role="button"], span[role="button"], a[role="button"], button'));
+      let clicked = 0;
+      for (const button of buttons) {
+        if (clicked >= 4) break;
+        const text = String(button.innerText || button.textContent || "").replace(/\s+/g, " ").trim();
+        if (!text || !expandRe.test(text) || blockRe.test(text)) continue;
+        if (button.getAttribute("aria-disabled") === "true") continue;
+        button.click();
+        clicked += 1;
+      }
+      return clicked;
+    })
+    .catch(() => 0);
+}
+
 async function extractCandidatePosts(page) {
-  const raw = await page.evaluate(() => {
-    const anchors = Array.from(document.querySelectorAll("a"))
-      .map((a) => a.getAttribute("href") || "")
-      .filter(Boolean);
-    return anchors.slice(0, 2000);
-  });
+  const raw = await page.evaluate((limit) => {
+    const isPostHref = (href) =>
+      href.includes("/posts/") || href.includes("story_fbid=") || href.includes("permalink.php") || href.includes("/permalink/");
+
+    const articles = Array.from(document.querySelectorAll('div[role="article"]'));
+    const rows = [];
+
+    for (let index = 0; index < articles.length; index++) {
+      const article = articles[index];
+      const hrefs = Array.from(article.querySelectorAll("a[href]"))
+        .map((anchor) => anchor.getAttribute("href") || "")
+        .filter(Boolean);
+      const hit = hrefs.find((href) => isPostHref(href));
+      if (!hit) continue;
+      rows.push({ post_url: hit, feed_index: index });
+      if (rows.length >= limit * 3) break;
+    }
+
+    return rows;
+  }, MAX_POSTS_PER_GROUP);
 
   const urls = new Set();
-  for (const href of raw) {
-    if (!href) continue;
-    if (
-      !href.includes("/posts/") &&
-      !href.includes("story_fbid=") &&
-      !href.includes("permalink.php") &&
-      !href.includes("/permalink/")
-    ) {
-      continue;
-    }
-    const normalized = normalizeFacebookUrl(href);
+  const ranked = raw.sort((a, b) => a.feed_index - b.feed_index);
+  for (const item of ranked) {
+    const normalized = normalizeFacebookUrl(item.post_url);
     if (!normalized) continue;
     if (!normalized.includes("facebook.com")) continue;
     urls.add(normalized);
@@ -382,13 +420,27 @@ async function extractCandidatePosts(page) {
 async function extractPostDetails(page, expectedFbPostId) {
   const details = await page.evaluate((targetId) => {
     const norm = (t) => String(t || "").replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    const postHrefRe = /\/posts\/|story_fbid=|permalink\.php|\/permalink\//i;
+    const bodySelector = '[data-ad-preview="message"], [data-ad-comet-preview="message"]';
+    const actionTextRe = /^(like|comment|share|send|reply|follow|more|most relevant|view more comments|write a comment|leave a comment|commenting as|讚好|留言|回覆|分享|發送|最相關|查看更多留言|寫留言|發表留言)$/i;
+    const commentBoundaryRe = /(most relevant|all comments|view more comments|write a comment|leave a comment|commenting as|comments|replies|最相關|所有留言|查看更多留言|寫留言|發表留言|留言|回覆)/i;
+    const imageAltRe = /(profile picture|avatar|emoji|sticker|icon|reaction|貼圖|頭像|個人檔案相片|表情)/i;
+
+    const hasPostHref = (href) => postHrefRe.test(String(href || ""));
+    const getPostLinks = (root) =>
+      Array.from(root.querySelectorAll("a[href]"))
+        .map((anchor) => anchor.getAttribute("href") || "")
+        .filter((href) => hasPostHref(href));
 
     const scoreArticle = (el) => {
       const txtLen = (el.innerText || "").trim().length;
-      if (!targetId) return txtLen;
-      const anchors = Array.from(el.querySelectorAll("a[href]")).map((a) => a.getAttribute("href") || "");
-      const hit = anchors.some((href) => href.includes(String(targetId)));
-      return (hit ? 1_000_000 : 0) + txtLen;
+      const anchors = getPostLinks(el);
+      const hit = targetId ? anchors.some((href) => href.includes(String(targetId))) : anchors.length > 0;
+      const hasBody = el.querySelector(bodySelector);
+      const hasTime = el.querySelector("abbr[title], time[datetime]");
+      const hasHeader = el.querySelector("h2 a, h3 a, h4 a, strong a");
+      const rectTop = Math.abs(Number(el.getBoundingClientRect?.().top ?? 0));
+      return (hit ? 1_000_000 : 0) + (hasBody ? 20_000 : 0) + (hasTime ? 10_000 : 0) + (hasHeader ? 5_000 : 0) + txtLen - rectTop;
     };
 
     const pickArticle = () => {
@@ -423,49 +475,88 @@ async function extractPostDetails(page, expectedFbPostId) {
     };
 
     const article = pickArticle();
-
-    const textBlocks = [];
-    const msgSelectors = ['[data-ad-preview="message"]', '[data-ad-comet-preview="message"]'];
-    for (const sel of msgSelectors) {
-      const nodes = Array.from((article || document).querySelectorAll(sel));
-      for (const n of nodes) {
-        const t = norm(n.innerText || n.textContent || "");
-        if (t && t.length >= 2) textBlocks.push(t);
+    const root = article || document;
+    const textFromNode = (node) => norm(node?.innerText || node?.textContent || "");
+    const collectBodyNodes = () =>
+      Array.from(root.querySelectorAll(bodySelector))
+        .filter((node) => !node.closest('[aria-label*="comment" i], [aria-label*="留言"], [role="textbox"], form'))
+        .map((node) => textFromNode(node))
+        .filter((text) => text && text.length >= 2);
+    const collectFallbackBlocks = () => {
+      const blocks = [];
+      const nodes = Array.from(root.querySelectorAll('div[dir="auto"], span[dir="auto"], p'));
+      let hitBoundary = false;
+      for (const node of nodes) {
+        const text = textFromNode(node);
+        if (!text) continue;
+        if (commentBoundaryRe.test(text)) {
+          hitBoundary = true;
+          continue;
+        }
+        if (hitBoundary) continue;
+        if (node.closest('[aria-label*="comment" i], [aria-label*="留言"], [role="textbox"], form')) continue;
+        if (actionTextRe.test(text)) continue;
+        if (text.length < 8 || text.length > 2000) continue;
+        if (blocks.includes(text)) continue;
+        blocks.push(text);
+        if (blocks.length >= 6) break;
       }
-      if (textBlocks.length) break;
-    }
+      return blocks;
+    };
 
-    let contentText = textBlocks.join("\n\n");
+    let contentText = collectBodyNodes().join("\n\n");
     if (!contentText) {
-      const pool = Array.from((article || document).querySelectorAll('div[dir="auto"], span[dir="auto"]'))
-        .map((n) => norm(n.innerText || n.textContent || ""))
-        .filter((t) => t && t.length >= 8 && t.length <= 2000);
-      const merged = pool.slice(0, 8).join("\n");
-      contentText = norm(merged);
+      contentText = norm(collectFallbackBlocks().join("\n"));
     }
 
     const imgSet = new Set();
-    const imgs = Array.from((article || document).querySelectorAll("img"));
+    const pushImage = (raw, width = 0, height = 0, alt = "") => {
+      const src = String(raw || "").trim();
+      if (!src) return;
+      if (src.startsWith("data:") || src.startsWith("blob:")) return;
+      if (!/(fbcdn|scontent)\./i.test(src)) return;
+      if (alt && imageAltRe.test(alt)) return;
+      if (width && height && width < 160 && height < 160) return;
+      imgSet.add(src);
+    };
+    const imgs = Array.from(root.querySelectorAll("img"));
     for (const img of imgs) {
-      const src =
-        img.currentSrc ||
-        img.src ||
-        img.getAttribute("src") ||
-        img.getAttribute("data-src") ||
-        img.getAttribute("data-original") ||
-        "";
-      if (!src) continue;
-      if (src.startsWith("data:") || src.startsWith("blob:")) continue;
-      if (!/(fbcdn|scontent)\./i.test(src)) continue;
+      const srcCandidates = [
+        img.currentSrc,
+        img.src,
+        img.getAttribute("src"),
+        img.getAttribute("data-src"),
+        img.getAttribute("data-original"),
+        img.getAttribute("data-imgsrc"),
+      ]
+        .map((item) => String(item || "").trim())
+        .filter(Boolean);
+      const srcSet = String(img.getAttribute("srcset") || "").trim();
+      if (srcSet) {
+        for (const part of srcSet.split(",")) {
+          const candidate = part.trim().split(/\s+/)[0];
+          if (candidate) srcCandidates.push(candidate);
+        }
+      }
       const w = Number(img.naturalWidth || 0);
       const h = Number(img.naturalHeight || 0);
-      if (w && h && w < 200 && h < 200) continue;
-      imgSet.add(src);
+      const alt = String(img.getAttribute("alt") || "").trim();
+      for (const candidate of srcCandidates) {
+        pushImage(candidate, w, h, alt);
+      }
       if (imgSet.size >= 12) break;
+    }
+    if (imgSet.size < 12) {
+      const styled = Array.from(root.querySelectorAll('[style*="background-image"]'));
+      for (const node of styled) {
+        const style = String(node.getAttribute("style") || "");
+        const match = style.match(/background-image\s*:\s*url\((['"]?)(https?:\/\/[^)'"]+)\1\)/i);
+        if (match?.[2]) pushImage(match[2]);
+        if (imgSet.size >= 12) break;
+      }
     }
 
     const pickTimeRaw = () => {
-      const root = article || document;
       const abbr = root.querySelector("abbr[title]");
       if (abbr) return abbr.getAttribute("title") || abbr.textContent || "";
       const time = root.querySelector("time[datetime]");
@@ -533,7 +624,7 @@ async function scrapeOnce() {
     }
 
     for (const group of targetGroups) {
-      const url = normalizeGroupUrl(group.group_url);
+      const url = buildChronologicalGroupUrl(group.group_url);
       if (!url) {
         console.error(`[FB-Scraper] 無效的群組網址，已跳過：${group.group_name || group.id}`);
         continue;
@@ -561,6 +652,7 @@ async function scrapeOnce() {
           await page.goto(postUrl, { waitUntil: "domcontentloaded", timeout: NAV_TIMEOUT_MS });
           await randomHumanPause(600, 1400);
           await humanScroll(page, randInt(2, 5));
+          await expandPostBody(page);
 
           const details = await extractPostDetails(page, p.fb_post_id);
 
