@@ -134,7 +134,7 @@ const DB_BATCH_SIZE = clamp(envNum("FB_SCRAPER_DB_BATCH_SIZE", 10), 1, 50);
 const POST_MIN_DELAY_MS = envNum("FB_SCRAPER_POST_MIN_DELAY_MS", 120);
 const POST_MAX_DELAY_MS = envNum("FB_SCRAPER_POST_MAX_DELAY_MS", 360);
 const SOFT_TIMEOUT_MS = envNum("FB_SCRAPER_SOFT_TIMEOUT_MS", 45_000);
-const GROUP_TIMEOUT_MS = clamp(envNum("FB_SCRAPER_GROUP_TIMEOUT_MS", 20_000), 5_000, 60_000);
+const GROUP_TIMEOUT_MS = clamp(envNum("FB_SCRAPER_GROUP_TIMEOUT_MS", 30_000), 5_000, 60_000);
 const STALE_JOB_MS = clamp(envNum("FB_SCRAPER_STALE_JOB_MS", Math.max(GROUP_TIMEOUT_MS + 15_000, 30_000)), GROUP_TIMEOUT_MS + 5_000, 300_000);
 const SKIP_GROUP_IDS = new Set(
   String(env("FB_SCRAPER_SKIP_GROUP_IDS", ""))
@@ -348,6 +348,70 @@ function createGroupTimeoutMessage(group: MonitoredGroup, timeoutMs: number) {
 
 function isGroupTimeoutMessage(message: string) {
   return message.startsWith("FB_GROUP_TIMEOUT:");
+}
+
+type GroupSkipReasonCode =
+  | "group_timeout"
+  | "watchdog_stale_worker"
+  | "facebook_login_required"
+  | "facebook_session_invalid"
+  | "invalid_group_url"
+  | "navigation_timeout"
+  | "selector_or_dom_missing"
+  | "unknown_error";
+
+function classifyGroupSkipReason(message: string, source: "worker" | "watchdog") {
+  const text = String(message || "").trim();
+  if (source === "watchdog") {
+    return {
+      code: "watchdog_stale_worker" as const,
+      detail: `watchdog 偵測 worker 逾時或被平台中斷（>${STALE_JOB_MS}ms）`,
+    };
+  }
+  if (isGroupTimeoutMessage(text)) {
+    return {
+      code: "group_timeout" as const,
+      detail: `群組處理逾時（>${GROUP_TIMEOUT_MS}ms）`,
+    };
+  }
+  if (text === "FB_LOGIN_REQUIRED") {
+    return {
+      code: "facebook_login_required" as const,
+      detail: "Facebook 要求重新登入，群組頁被登入頁或 checkpoint 擋住",
+    };
+  }
+  if (text === "FB_SESSION_INVALID") {
+    return {
+      code: "facebook_session_invalid" as const,
+      detail: "Facebook session 已失效，cookies 需要重新整理",
+    };
+  }
+  if (/^群組網址無效[:：]/.test(text)) {
+    return {
+      code: "invalid_group_url" as const,
+      detail: text,
+    };
+  }
+  if (/Navigation timeout|net::ERR|ERR_|Timed out/i.test(text)) {
+    return {
+      code: "navigation_timeout" as const,
+      detail: text,
+    };
+  }
+  if (/selector|Cannot read|Cannot find|Failed to find|missing|not found|detached/i.test(text)) {
+    return {
+      code: "selector_or_dom_missing" as const,
+      detail: text,
+    };
+  }
+  return {
+    code: "unknown_error" as const,
+    detail: text || "unknown_error",
+  };
+}
+
+function formatGroupSkipReason(reason: { code: GroupSkipReasonCode; detail: string }) {
+  return `[${reason.code}] ${reason.detail}`;
 }
 
 function parseFacebookTimeToIso(raw: string) {
@@ -1200,7 +1264,11 @@ async function recoverStaleScrapeJob(req: NextRequest, admin: any, job: FbScrape
   const processedGroups = Math.min(job.processed_groups + 1, targetGroups.length);
   const hasMore = nextGroupIndex < targetGroups.length;
   const nextGroup = hasMore ? targetGroups[nextGroupIndex] : null;
-  const skipMessage = `watchdog 偵測群組 worker 逾時/中斷（>${STALE_JOB_MS}ms），已自動略過`;
+  const reason = classifyGroupSkipReason("", "watchdog");
+  const skipMessage = formatGroupSkipReason(reason);
+  console.warn(
+    `[FB Scrape Job ${job.id}] Watchdog skip reason | group=${currentGroupName} code=${reason.code} detail=${reason.detail} age=${staleMs}ms`,
+  );
   const updated = await patchScrapeJob(admin, job.id, {
     status: hasMore ? "running" : "completed",
     processed_groups: processedGroups,
@@ -1213,8 +1281,8 @@ async function recoverStaleScrapeJob(req: NextRequest, admin: any, job: FbScrape
     last_heartbeat_at: new Date().toISOString(),
     finished_at: hasMore ? null : new Date().toISOString(),
     last_message: hasMore
-      ? `背景同步 watchdog 已略過群組「${currentGroupName}」，並繼續處理第 ${nextGroupIndex + 1}/${targetGroups.length} 個群組。`
-      : `背景同步完成，但 watchdog 已略過最後一個卡住的群組。${formatFbAiStatusCounts(counts)}`,
+      ? `背景同步 watchdog 已略過群組「${currentGroupName}」（${reason.code}），並繼續處理第 ${nextGroupIndex + 1}/${targetGroups.length} 個群組。`
+      : `背景同步完成，但 watchdog 已略過最後一個卡住的群組（${reason.code}）。${formatFbAiStatusCounts(counts)}`,
   });
   if (hasMore) {
     await scheduleScrapeJobWorker(req, updated);
@@ -1349,11 +1417,18 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error || "unknown_error");
     const isGroupTimeout = isGroupTimeoutMessage(message);
+    const reason = classifyGroupSkipReason(message, "worker");
     if (isGroupTimeout) {
       logGroupWarn(groupContext, group, "TIMEOUT", `duration=${Date.now() - groupStartedAt}ms timeout=${GROUP_TIMEOUT_MS}ms`);
     } else {
       logGroupError(groupContext, group, "FAILED", `duration=${Date.now() - groupStartedAt}ms error=${message}`);
     }
+    logGroupWarn(
+      groupContext,
+      group,
+      "SKIP_REASON",
+      `code=${reason.code} detail=${reason.detail} duration=${Date.now() - groupStartedAt}ms`,
+    );
     if ((message === "FB_SESSION_INVALID" || message === "FB_LOGIN_REQUIRED") && isDevMockEnabled()) {
       const summary = await runMockSync(admin, job.max_groups);
       const completed = await finalizeScrapeJob(admin, job, "completed", {
@@ -1385,7 +1460,7 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
       return NextResponse.json({ ok: true, job: null });
     }
     const counts = await getFbAiStatusCounts(admin);
-    const skipMessage = isGroupTimeout ? `群組處理逾時（>${GROUP_TIMEOUT_MS}ms），已自動跳過` : message;
+    const skipMessage = formatGroupSkipReason(reason);
     const groupErrors = [...writableJob.group_errors, `${group.group_name || group.id}：${skipMessage}`].slice(-50);
     const nextGroupIndex = writableJob.next_group_index + 1;
     const processedGroups = writableJob.processed_groups + 1;
@@ -1403,8 +1478,8 @@ async function handleScrapeJobWorker(req: NextRequest, jobId: string, jobToken: 
       last_heartbeat_at: new Date().toISOString(),
       finished_at: hasMore ? null : new Date().toISOString(),
       last_message: hasMore
-        ? `背景同步略過群組「${getGroupDisplayName(group)}」後繼續：已完成 ${processedGroups}/${targetGroups.length} 個群組`
-        : `背景同步完成，但有 ${groupErrors.length} 個群組失敗。${formatFbAiStatusCounts(counts)}`,
+        ? `背景同步略過群組「${getGroupDisplayName(group)}」（${reason.code}）後繼續：已完成 ${processedGroups}/${targetGroups.length} 個群組`
+        : `背景同步完成，但有 ${groupErrors.length} 個群組失敗。最後一個 skip 原因：${reason.code}。${formatFbAiStatusCounts(counts)}`,
     });
     if (hasMore) {
       await scheduleScrapeJobWorker(req, updated);
