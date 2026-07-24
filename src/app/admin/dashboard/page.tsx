@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import QRCode from "qrcode";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DivIcon } from "leaflet";
 
@@ -156,34 +156,6 @@ type DashboardViewTab =
   | "guide-places"
   | "system";
 
-type FbApprovalQueueItem = {
-  id: string;
-  post_url: string;
-  post_created_at: string | null;
-  content_text: string | null;
-  image_urls: unknown;
-  ai_result: unknown;
-  last_seen_at: string;
-};
-type FbScrapeJobStatus = "queued" | "running" | "completed" | "failed";
-type FbScrapeJob = {
-  id: string;
-  status: FbScrapeJobStatus;
-  mode: "live" | "mock";
-  total_groups: number;
-  next_group_index: number;
-  processed_groups: number;
-  candidates: number;
-  upserted: number;
-  current_group_name: string | null;
-  last_message: string | null;
-  last_error: string | null;
-  requested_at: string | null;
-  started_at: string | null;
-  finished_at: string | null;
-  updated_at: string | null;
-};
-
 const DEFAULT_SYSTEM_SETTINGS: SystemSettingsForm = {
   admin_whatsapp_number: "你的管理員預設電話",
   template_admin_notification:
@@ -268,12 +240,6 @@ const normalizeTimelineItems = (input: unknown): PetTimelineItem[] => {
     .filter((t) => t.time.trim() && t.text.trim());
 };
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object") return null;
-  if (Array.isArray(value)) return null;
-  return value as Record<string, unknown>;
-}
-
 function normalizeImageUrlList(value: unknown) {
   if (!value) return [];
   const items = Array.isArray(value) ? value : typeof value === "string" ? value.split(/[\n,，、|]/g) : [];
@@ -284,20 +250,6 @@ function normalizeImageUrlList(value: unknown) {
 
 function getPrimaryImageUrl(image_urls: string[]) {
   return image_urls.find(Boolean) || "";
-}
-
-function pickString(obj: Record<string, unknown> | null, key: string) {
-  if (!obj) return null;
-  const v = obj[key];
-  if (typeof v !== "string") return null;
-  const t = v.trim();
-  return t ? t : null;
-}
-
-function pickPetType(obj: Record<string, unknown> | null) {
-  const v = obj?.pet_type;
-  if (v === "cat" || v === "dog" || v === "bird" || v === "other") return v;
-  return null;
 }
 
 const AdminMiniMap = dynamic(() => import("@/components/AdminMiniMap"), {
@@ -421,14 +373,6 @@ export default function AdminDashboardPage() {
     pending: [],
     resolved: [],
   });
-  const [fbApprovalQueue, setFbApprovalQueue] = useState<FbApprovalQueueItem[]>([]);
-  const [publishingFbPostId, setPublishingFbPostId] = useState("");
-  const [deletingFbPostId, setDeletingFbPostId] = useState("");
-  const [scrapingFbPosts, setScrapingFbPosts] = useState(false);
-  const [fbScrapeJob, setFbScrapeJob] = useState<FbScrapeJob | null>(null);
-  const [fbScrapeWatchJobId, setFbScrapeWatchJobId] = useState("");
-  const [editingFbPostId, setEditingFbPostId] = useState<string | null>(null);
-
   const [form, setForm] = useState<PetInsert>({
     user_id: null,
     pet_name: "",
@@ -607,8 +551,6 @@ export default function AdminDashboardPage() {
   const [systemSettings, setSystemSettings] = useState<SystemSettingsForm>(DEFAULT_SYSTEM_SETTINGS);
   const [loadingSystemSettings, setLoadingSystemSettings] = useState(false);
   const [savingSystemSettings, setSavingSystemSettings] = useState(false);
-  const lastHandledFbScrapeJobStateRef = useRef("");
-
   const formTimeParts = useMemo(() => {
     return parseIsoToLocalParts(form.lost_time) ?? parseIsoToLocalParts(new Date().toISOString())!;
   }, [form.lost_time]);
@@ -619,22 +561,6 @@ export default function AdminDashboardPage() {
   }, [editingPet?.lost_time]);
 
   const safeEditingTimeParts = editingTimeParts ?? { date: "", hour: "00", minute: "00" };
-  const fbScrapeJobStatusText = useMemo(() => {
-    if (!fbScrapeJob) return "";
-    if (fbScrapeJob.status === "queued") {
-      return `Facebook 背景同步已排隊，準備處理 ${fbScrapeJob.total_groups} 個群組。`;
-    }
-    if (fbScrapeJob.status === "running") {
-      return `Facebook 背景同步進行中：${fbScrapeJob.processed_groups}/${fbScrapeJob.total_groups} 個群組，累計 ${fbScrapeJob.upserted} 筆貼文${
-        fbScrapeJob.current_group_name ? `，現正處理「${fbScrapeJob.current_group_name}」` : ""
-      }。`;
-    }
-    if (fbScrapeJob.status === "failed") {
-      return fbScrapeJob.last_error || fbScrapeJob.last_message || "Facebook 背景同步失敗。";
-    }
-    return fbScrapeJob.last_message || `Facebook 背景同步已完成，累計 ${fbScrapeJob.upserted} 筆貼文。`;
-  }, [fbScrapeJob]);
-
   const showToast = (message: string, tone: "error" | "success" = "error") => {
     setToastMessage(message);
     setToastTone(tone);
@@ -649,13 +575,6 @@ export default function AdminDashboardPage() {
   const GUIDE_PLACES_PAGE_SIZE = 20;
   const STAGED_PLACES_PAGE_SIZE = 20;
 
-  const fetchFbApprovalQueue = async () => {
-    const res = await fetch("/api/admin/fb-posts/approval-queue?limit=30", { method: "GET", cache: "no-store" });
-    const json = (await res.json().catch(() => null)) as { items?: FbApprovalQueueItem[]; error?: string } | null;
-    if (!res.ok) throw new Error(json?.error || "讀取 Facebook AI 待審批貼文失敗");
-    return Array.isArray(json?.items) ? json!.items! : [];
-  };
-
   const fetchListByStatus = async (status: TabKey) => {
     const { data, error } = await supabase
       .from("pets")
@@ -666,42 +585,11 @@ export default function AdminDashboardPage() {
     return (data ?? []) as PetRow[];
   };
 
-  const fetchFbScrapeJob = async (jobId?: string) => {
-    const query = jobId ? `?jobId=${encodeURIComponent(jobId)}` : "";
-    const res = await fetch(`/api/admin/fb-posts/scrape-sync${query}`, { method: "GET", cache: "no-store" });
-    const json = (await res.json().catch(() => null)) as
-      | {
-          job?: FbScrapeJob | null;
-          error?: string;
-        }
-      | null;
-    if (!res.ok) throw new Error(json?.error || "讀取 Facebook 背景同步狀態失敗");
-    return json?.job ?? null;
-  };
-
-  const loadFbScrapeJob = async (jobId?: string, silent = false) => {
-    try {
-      const job = await fetchFbScrapeJob(jobId);
-      setFbScrapeJob(job);
-      return job;
-    } catch (err) {
-      if (!silent) {
-        const msg = err instanceof Error && err.message ? err.message : "讀取 Facebook 背景同步狀態失敗";
-        showToast(msg);
-      }
-      return null;
-    }
-  };
-
   const loadList = async (nextTab = tab) => {
     setLoadingList(true);
     try {
-      const [data, fbQueue] = await Promise.all([
-        fetchListByStatus(nextTab),
-        nextTab === "pending" ? fetchFbApprovalQueue() : Promise.resolve([] as FbApprovalQueueItem[]),
-      ]);
+      const data = await fetchListByStatus(nextTab);
       setBoardItems((prev) => ({ ...prev, [nextTab]: data }));
-      if (nextTab === "pending") setFbApprovalQueue(fbQueue);
     } catch (err) {
       const msg = err instanceof Error && err.message ? err.message : "讀取資料失敗";
       showToast(msg);
@@ -710,56 +598,15 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const triggerFbScrapeSync = async () => {
-    if (scrapingFbPosts) return;
-    setScrapingFbPosts(true);
-    try {
-      const res = await fetch("/api/admin/fb-posts/scrape-sync", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      const json = (await res.json().catch(() => null)) as
-        | {
-            ok?: boolean;
-            accepted?: boolean;
-            job?: FbScrapeJob | null;
-            error?: string;
-            detail?: string;
-            message?: string;
-            mode?: string;
-            stack?: string;
-          }
-        | null;
-      if (!res.ok) {
-        const errorText = [json?.detail || json?.error || `同步失敗（HTTP ${res.status}）`, json?.stack].filter(Boolean).join("\n\n");
-        throw new Error(errorText);
-      }
-      const job = json?.job ?? null;
-      setFbScrapeJob(job);
-      setFbScrapeWatchJobId(job?.id || "");
-      setScrapingFbPosts(Boolean(job && (job.status === "queued" || job.status === "running")));
-      showToast(json?.message || "已啟動 Facebook 背景同步。", "success");
-      await refreshAllBoards(tab);
-    } catch (err) {
-      const msg = err instanceof Error && err.message ? err.message : "同步失敗";
-      alert(msg);
-      showToast(msg);
-      setScrapingFbPosts(false);
-    }
-  };
-
   const refreshAllBoards = async (nextActiveTab: TabKey = tab) => {
     setLoadingList(true);
     try {
-      const [approved, pending, resolved, fbQueue] = await Promise.all([
+      const [approved, pending, resolved] = await Promise.all([
         fetchListByStatus("approved"),
         fetchListByStatus("pending"),
         fetchListByStatus("resolved"),
-        fetchFbApprovalQueue(),
       ]);
       setBoardItems({ approved, pending, resolved });
-      setFbApprovalQueue(fbQueue);
       setTab(nextActiveTab);
     } catch (err) {
       const msg = err instanceof Error && err.message ? err.message : "刷新資料失敗";
@@ -771,50 +618,7 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     void refreshAllBoards("approved");
-    void (async () => {
-      const job = await loadFbScrapeJob(undefined, true);
-      if (job && (job.status === "queued" || job.status === "running")) {
-        setFbScrapeWatchJobId(job.id);
-        setScrapingFbPosts(true);
-      }
-    })();
   }, []);
-
-  useEffect(() => {
-    const watchingJobId = fbScrapeWatchJobId || fbScrapeJob?.id || "";
-    if (!watchingJobId) return;
-
-    let active = true;
-    const timer = window.setInterval(() => {
-      void (async () => {
-        const job = await loadFbScrapeJob(watchingJobId, true);
-        if (!active || !job) return;
-
-        const stateKey = `${job.id}:${job.status}:${job.updated_at || ""}:${job.upserted}:${job.processed_groups}`;
-        if (job.status === "completed" || job.status === "failed") {
-          window.clearInterval(timer);
-          setFbScrapeWatchJobId("");
-          setScrapingFbPosts(false);
-          if (lastHandledFbScrapeJobStateRef.current !== stateKey) {
-            lastHandledFbScrapeJobStateRef.current = stateKey;
-            if (job.status === "completed") {
-              showToast(job.last_message || "Facebook 背景同步已完成。", "success");
-            } else {
-              const msg = job.last_error || job.last_message || "Facebook 背景同步失敗。";
-              alert(msg);
-              showToast(msg);
-            }
-          }
-          await refreshAllBoards(tab);
-        }
-      })();
-    }, 3000);
-
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, [fbScrapeWatchJobId, fbScrapeJob?.id, tab]);
 
   useEffect(() => {
     let active = true;
@@ -2665,139 +2469,6 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const onPublishFbPost = async (row: FbApprovalQueueItem) => {
-    setPublishingFbPostId(row.id);
-    try {
-      const res = await fetch("/api/admin/fb-posts/publish", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: row.id }),
-      });
-      const data = (await res.json().catch(() => ({}))) as { error?: string; pet_id?: string };
-      if (!res.ok) throw new Error(data.error || "發佈失敗");
-      await refreshAllBoards("approved");
-      showToast("✅ 已核准並發佈到地圖", "success");
-      if (data.pet_id) {
-        try {
-          await fetch("/api/push/trigger", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ kind: "NEW_CASE", petId: data.pet_id }),
-          });
-        } catch {}
-      }
-    } catch (err) {
-      const msg = err instanceof Error && err.message ? err.message : "發佈失敗";
-      showToast(msg);
-    } finally {
-      setPublishingFbPostId("");
-    }
-  };
-
-  const onDeleteFbPost = async (row: FbApprovalQueueItem) => {
-    if (deletingFbPostId || publishingFbPostId === row.id) return;
-    const confirmed = window.confirm("確定要刪除這則待審批貼文嗎？此操作不可逆。");
-    if (!confirmed) return;
-
-    setDeletingFbPostId(row.id);
-    try {
-      const res = await fetch(`/api/admin/fb-posts?id=${encodeURIComponent(row.id)}`, {
-        method: "DELETE",
-      });
-      const data = (await res.json().catch(() => ({}))) as { error?: string };
-      if (!res.ok) throw new Error(data.error || "刪除失敗");
-
-      if (editingFbPostId === row.id) {
-        closeEditModal();
-      }
-      await refreshAllBoards("pending");
-      showToast("🗑️ 已刪除待審批 Facebook 貼文", "success");
-    } catch (err) {
-      const msg = err instanceof Error && err.message ? err.message : "刪除失敗";
-      showToast(msg);
-    } finally {
-      setDeletingFbPostId("");
-    }
-  };
-
-  const openFbEdit = (row: FbApprovalQueueItem) => {
-    const meta = asRecord(row.ai_result);
-    const petType = pickPetType(meta) || "bird";
-    const breed = pickString(meta, "breed") || "";
-    const location = pickString(meta, "location") || "";
-    const contactPhone = pickString(meta, "contact_phone") || "";
-    const characteristics = pickString(meta, "characteristics") || "";
-    const content = String(row.content_text || "").trim();
-    const snippet = content ? (content.length > 140 ? `${content.slice(0, 140)}…` : content) : "";
-    const caseType: PetRow["case_type"] = /(救起|救到|拾獲|已救起)/i.test(content)
-      ? "found_rescued"
-      : /(目擊|見到|見過|發現|出沒|徘徊)/i.test(content)
-        ? "spotted_unrescued"
-        : "lost";
-    const sourceType: PetRow["source_type"] =
-      caseType === "found_rescued" ? "repost_rescued" : caseType === "spotted_unrescued" ? "repost_sighting" : "repost_owner";
-    const lostTime = row.post_created_at || new Date().toISOString();
-    const imageUrl =
-      Array.isArray(row.image_urls) && row.image_urls.length > 0 ? String(row.image_urls[0] || "").trim() : "";
-    const postUrl = String(row.post_url || "").trim();
-    const petName =
-      pickString(meta, "pet_name") ||
-      breed ||
-      (petType === "bird" ? "鸚鵡" : petType === "dog" ? "狗狗" : petType === "cat" ? "貓貓" : "毛孩");
-
-    const draft: PetRow = {
-      id: row.id,
-      user_id: null,
-      pet_name: petName,
-      pet_type: petType,
-      breed: breed || null,
-      location,
-      manual_address: null,
-      district: null,
-      lost_time: lostTime,
-      features: [characteristics, breed ? `品種：${breed}` : "", snippet ? `貼文摘要：${snippet}` : ""]
-        .filter(Boolean)
-        .join(" / ") || "未提供",
-      phone: contactPhone || "",
-      enable_privacy: true,
-      image_url: imageUrl || "",
-      source_url: postUrl,
-      source_type: sourceType,
-      source_link: postUrl || null,
-      case_type: caseType,
-      status: "pending",
-      latitude: null,
-      longitude: null,
-      timeline: null,
-      created_at: new Date().toISOString(),
-    };
-
-    setEditingFbPostId(row.id);
-    setEditingTimeline([]);
-    setEditingPet({
-      ...draft,
-      source_type: normalizeContactIdentity(draft.source_type, draft.case_type),
-    });
-    setEditingMapFocus({ center: [22.3193, 114.1694], zoom: 12 });
-
-    if (location.trim()) {
-      void (async () => {
-        const result = await geocodeHongKongAddress(location).catch(() => null);
-        if (!result) return;
-        setEditingPet((prev) =>
-          prev
-            ? {
-                ...prev,
-                latitude: result.lat,
-                longitude: result.lng,
-              }
-            : prev,
-        );
-        setEditingMapFocus({ center: [result.lat, result.lng], zoom: 17 });
-      })();
-    }
-  };
-
   const handleAdminImageUpload = async (file?: File) => {
     if (!file) return;
     try {
@@ -2938,7 +2609,6 @@ export default function AdminDashboardPage() {
     setEditingTimeline([]);
     setEditingAddressSearchQuery("");
     setEditingMapFocus(null);
-    setEditingFbPostId(null);
   };
 
   const updateEditingPet = <K extends keyof PetRow>(key: K, value: PetRow[K]) => {
@@ -3016,10 +2686,6 @@ export default function AdminDashboardPage() {
       showToast("社交媒體轉貼案件請補上原帖連結。");
       return;
     }
-    if (editingFbPostId && !approveAfterSave) {
-      showToast("Facebook AI 待審批案件請使用「✅ 核准並發佈到地圖」。");
-      return;
-    }
     const nextStatus: PetStatus = approveAfterSave ? "approved" : editingPet.status;
     if (nextStatus === "approved" && !hasCoordinates) {
       showToast("批准上線前，請先補全有效座標。");
@@ -3058,22 +2724,27 @@ export default function AdminDashboardPage() {
         status: nextStatus,
       };
 
-      if (editingFbPostId) {
-        const res = await fetch("/api/admin/fb-posts/publish", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: editingFbPostId, pet: updatePayload }),
-        });
-        const data = (await res.json().catch(() => ({}))) as { error?: string; pet_id?: string };
-        if (!res.ok) throw new Error(data.error || "核准並發佈失敗");
-        const insertedId = String(data.pet_id || "").trim();
-        if (!insertedId) throw new Error("核准成功，但缺少 pet_id 回傳");
+      const res = await fetch(`/api/admin/pets/${encodeURIComponent(editingPet.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatePayload),
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        throw new Error(data.error || "儲存修改失敗");
+      }
 
-        closeEditModal();
-        await refreshAllBoards("approved");
-        showToast("✅ 已核准並發佈到地圖", "success");
+      closeEditModal();
+      await refreshAllBoards(nextStatus);
+      if (nextStatus === "approved") {
+        showToast("✅ 已儲存修改並直接批准上線", "success");
+      } else {
+        showToast("💾 已儲存案件修改", "success");
+      }
+
+      if (editingPet.status !== "approved" && nextStatus === "approved") {
         await broadcastDistrictEvent(resolvedDistrict ?? editingPet.district, "NEW_CASE", {
-          petId: insertedId,
+          petId: editingPet.id,
           petName: editingPet.pet_name,
           imageUrl: editingPet.image_url,
           address: locationText,
@@ -3085,46 +2756,9 @@ export default function AdminDashboardPage() {
           await fetch("/api/push/trigger", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ kind: "NEW_CASE", petId: insertedId }),
+            body: JSON.stringify({ kind: "NEW_CASE", petId: editingPet.id }),
           });
         } catch {}
-      } else {
-        const res = await fetch(`/api/admin/pets/${encodeURIComponent(editingPet.id)}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(updatePayload),
-        });
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        if (!res.ok) {
-          throw new Error(data.error || "儲存修改失敗");
-        }
-
-        closeEditModal();
-        await refreshAllBoards(nextStatus);
-        if (nextStatus === "approved") {
-          showToast("✅ 已儲存修改並直接批准上線", "success");
-        } else {
-          showToast("💾 已儲存案件修改", "success");
-        }
-
-        if (editingPet.status !== "approved" && nextStatus === "approved") {
-          await broadcastDistrictEvent(resolvedDistrict ?? editingPet.district, "NEW_CASE", {
-            petId: editingPet.id,
-            petName: editingPet.pet_name,
-            imageUrl: editingPet.image_url,
-            address: locationText,
-            district: resolvedDistrict ?? editingPet.district ?? null,
-            latitude: updatePayload.latitude,
-            longitude: updatePayload.longitude,
-          });
-          try {
-            await fetch("/api/push/trigger", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ kind: "NEW_CASE", petId: editingPet.id }),
-            });
-          } catch {}
-        }
       }
     } catch (err) {
       const msg = err instanceof Error && err.message ? err.message : "儲存修改失敗";
@@ -5846,7 +5480,7 @@ export default function AdminDashboardPage() {
               <div>
                 <div className="text-base font-black text-slate-900">🚨 案件審批看板</div>
                 <div className="mt-1 text-xs font-semibold text-slate-500">
-                  集中處理待審批、Facebook AI 入列、已發佈與已結案案件
+                  集中處理待審批、已發佈與已結案案件
                 </div>
               </div>
               <button
@@ -5865,35 +5499,14 @@ export default function AdminDashboardPage() {
           <div className="rounded-3xl bg-white p-6 shadow-xl ring-1 ring-black/5">
             <div className="flex items-center justify-between">
               <div className="text-base font-black text-slate-900">數據與審批管理看板</div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={scrapingFbPosts}
-                  onClick={() => void triggerFbScrapeSync()}
-                  className={[
-                    "rounded-xl bg-sky-600 px-3 py-2 text-sm font-black text-white shadow-sm",
-                    scrapingFbPosts ? "opacity-70" : "hover:bg-sky-700",
-                  ].join(" ")}
-                >
-                  <span className="inline-flex items-center gap-2">
-                    {scrapingFbPosts ? <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" /> : null}
-                    {scrapingFbPosts ? "同步中…" : "🔄 立即同步 Facebook 最新貼文"}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void refreshAllBoards(tab)}
-                  className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-900"
-                >
-                  重新整理
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => void refreshAllBoards(tab)}
+                className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-900"
+              >
+                重新整理
+              </button>
             </div>
-            {fbScrapeJobStatusText ? (
-              <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-600">
-                {fbScrapeJobStatusText}
-              </div>
-            ) : null}
 
             <div className="mt-4 flex gap-2">
               <button
@@ -5937,118 +5550,7 @@ export default function AdminDashboardPage() {
                 </div>
               ) : (
                 <>
-                  {tab === "pending" && fbApprovalQueue.length > 0 ? (
-                    <div className="overflow-hidden rounded-2xl border border-indigo-200 bg-indigo-50/40">
-                      <div className="flex items-center justify-between gap-3 px-4 py-3">
-                        <div>
-                          <div className="text-sm font-black text-slate-900">✨ Facebook AI 完成待審批（待發佈到地圖）</div>
-                          <div className="mt-0.5 text-xs font-semibold text-slate-600">
-                            來源：fb_group_posts（ai_status=done 且未建立對應地圖案件）
-                          </div>
-                        </div>
-                        <div className="rounded-full bg-indigo-600 px-3 py-1 text-xs font-black text-white">
-                          {fbApprovalQueue.length} 筆
-                        </div>
-                      </div>
-                      <div className="divide-y divide-indigo-200/70 bg-white">
-                        {fbApprovalQueue.map((row) => {
-                          const meta = asRecord(row.ai_result);
-                          const petType = pickString(meta, "pet_type") || "—";
-                          const breed = pickString(meta, "breed") || "—";
-                          const location = pickString(meta, "location") || "—";
-                          const phone = pickString(meta, "contact_phone") || "—";
-                          const busy = publishingFbPostId === row.id || deletingFbPostId === row.id;
-                          const preview = String(row.content_text || "").trim();
-                          const shortText = preview ? (preview.length > 180 ? `${preview.slice(0, 180)}…` : preview) : "（無內文）";
-
-                          return (
-                            <div key={row.id} className="flex flex-col gap-3 px-4 py-4 lg:flex-row lg:items-start lg:justify-between">
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="inline-flex rounded-full bg-indigo-100 px-2 py-1 text-[11px] font-black text-indigo-800">
-                                    ai_status=done
-                                  </span>
-                                  <span className="truncate text-[11px] font-bold text-slate-500">
-                                    最近抓取：{formatHongKongDateTime(row.last_seen_at)}
-                                  </span>
-                                </div>
-
-                                <div className="mt-2 line-clamp-3 text-xs font-semibold text-slate-800">{shortText}</div>
-
-                                <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                                  <div className="rounded-2xl bg-slate-50 px-3 py-2 ring-1 ring-slate-200">
-                                    <div className="text-[11px] font-black uppercase tracking-wide text-slate-500">Pet Type</div>
-                                    <div className="mt-1 text-sm font-black text-slate-900">{petType}</div>
-                                  </div>
-                                  <div className="rounded-2xl bg-slate-50 px-3 py-2 ring-1 ring-slate-200">
-                                    <div className="text-[11px] font-black uppercase tracking-wide text-slate-500">Breed</div>
-                                    <div className="mt-1 text-sm font-black text-slate-900">{breed}</div>
-                                  </div>
-                                  <div className="rounded-2xl bg-slate-50 px-3 py-2 ring-1 ring-slate-200">
-                                    <div className="text-[11px] font-black uppercase tracking-wide text-slate-500">Location</div>
-                                    <div className="mt-1 text-sm font-black text-slate-900">{location}</div>
-                                  </div>
-                                  <div className="rounded-2xl bg-slate-50 px-3 py-2 ring-1 ring-slate-200">
-                                    <div className="text-[11px] font-black uppercase tracking-wide text-slate-500">Phone</div>
-                                    <div className="mt-1 text-sm font-black text-slate-900">{phone}</div>
-                                  </div>
-                                </div>
-
-                                <div className="mt-2 flex flex-wrap items-center gap-2">
-                                  <a
-                                    href={row.post_url}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-900 hover:bg-slate-200"
-                                  >
-                                    開啟 FB 貼文
-                                  </a>
-                                </div>
-                              </div>
-
-                              <div className="flex shrink-0 flex-col gap-2">
-                                <button
-                                  type="button"
-                                  disabled={busy}
-                                  onClick={() => openFbEdit(row)}
-                                  className={[
-                                    "rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white",
-                                    busy ? "opacity-70" : "",
-                                  ].join(" ")}
-                                >
-                                  ✏️ 編輯資料
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={busy}
-                                  onClick={() => void onDeleteFbPost(row)}
-                                  className={[
-                                    "rounded-xl bg-rose-600 px-3 py-2 text-xs font-black text-white hover:bg-rose-700",
-                                    busy ? "opacity-70" : "",
-                                  ].join(" ")}
-                                >
-                                  {deletingFbPostId === row.id ? "刪除中…" : "🗑️ 刪除"}
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={busy}
-                                  onClick={() => void onPublishFbPost(row)}
-                                  className={[
-                                    "rounded-xl bg-emerald-600 px-3 py-2 text-xs font-black text-white",
-                                    busy ? "opacity-70" : "",
-                                  ].join(" ")}
-                                >
-                                  {busy ? "發佈中…" : "✅ 核准並發佈到地圖"}
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {items.length === 0 && (tab !== "pending" || fbApprovalQueue.length === 0) ? (
+                  {items.length === 0 ? (
                     <div className="rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-600">
                       暫時沒有資料
                     </div>
@@ -6496,13 +5998,9 @@ export default function AdminDashboardPage() {
             <div className="relative z-50 w-full max-w-5xl max-h-[92svh] overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl lg:rounded-3xl">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <div className="text-xl font-black text-slate-900">
-                    {editingFbPostId ? "Facebook AI 待審批 · 全功能案件超級編輯器" : "全功能案件超級編輯器"}
-                  </div>
+                  <div className="text-xl font-black text-slate-900">全功能案件超級編輯器</div>
                   <div className="mt-1 text-sm font-semibold text-slate-500">
-                    {editingFbPostId
-                      ? "可完整補全欄位、圖片、地址、座標後，再核准並發佈到地圖"
-                      : "可完整修正欄位、圖片、地址、座標與案件狀態，再儲存回 Supabase"}
+                    可完整修正欄位、圖片、地址、座標與案件狀態，再儲存回 Supabase
                   </div>
                 </div>
                 <button
@@ -6986,19 +6484,17 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="mt-6 flex flex-col gap-3 border-t border-slate-200 pt-5 sm:flex-row sm:justify-end">
-                {!editingFbPostId ? (
-                  <button
-                    type="button"
-                    onClick={() => void saveEditedPet(false)}
-                    disabled={editingSaving || editingUploadingImage}
-                    className={[
-                      "rounded-2xl bg-slate-900 px-5 py-4 text-sm font-black text-white shadow-lg",
-                      editingSaving || editingUploadingImage ? "opacity-70" : "",
-                    ].join(" ")}
-                  >
-                    {editingSaving ? "儲存中…" : editingUploadingImage ? "等待圖片上傳…" : "💾 儲存所有修改"}
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  onClick={() => void saveEditedPet(false)}
+                  disabled={editingSaving || editingUploadingImage}
+                  className={[
+                    "rounded-2xl bg-slate-900 px-5 py-4 text-sm font-black text-white shadow-lg",
+                    editingSaving || editingUploadingImage ? "opacity-70" : "",
+                  ].join(" ")}
+                >
+                  {editingSaving ? "儲存中…" : editingUploadingImage ? "等待圖片上傳…" : "💾 儲存所有修改"}
+                </button>
                 <button
                   type="button"
                   onClick={() => void saveEditedPet(true)}
@@ -7012,9 +6508,7 @@ export default function AdminDashboardPage() {
                     ? "儲存中…"
                     : editingUploadingImage
                       ? "等待圖片上傳…"
-                      : editingFbPostId
-                        ? "✅ 核准並發佈到地圖"
-                        : "✅ 儲存並直接批准上線"}
+                      : "✅ 儲存並直接批准上線"}
                 </button>
               </div>
             </div>

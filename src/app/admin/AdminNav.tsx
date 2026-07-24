@@ -39,12 +39,6 @@ export default function AdminNav() {
             <Link href="/admin/notifications" className={itemClass("/admin/notifications")}>
               🔔 通知紀錄中心
             </Link>
-            <Link href="/admin/fb-groups" className={itemClass("/admin/fb-groups")}>
-              🌐 FB 群組監控
-            </Link>
-            <Link href="/admin/fb-posts" className={itemClass("/admin/fb-posts")}>
-              ✨ FB 貼文 AI
-            </Link>
             <Link href="/admin/users" className={itemClass("/admin/users")}>
               👥 會員管理中心
             </Link>
@@ -58,12 +52,6 @@ export default function AdminNav() {
             </Link>
             <Link href="/admin/notifications" className={itemClass("/admin/notifications")}>
               🔔
-            </Link>
-            <Link href="/admin/fb-groups" className={itemClass("/admin/fb-groups")}>
-              🌐
-            </Link>
-            <Link href="/admin/fb-posts" className={itemClass("/admin/fb-posts")}>
-              ✨
             </Link>
             <Link href="/admin/users" className={itemClass("/admin/users")}>
               👥

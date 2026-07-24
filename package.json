@@ -6,9 +6,6 @@
     "dev": "concurrently -k -n next,whatsapp -c blue,green \"next dev --webpack\" \"npm run whatsapp\"",
     "build": "next build",
     "start": "next start",
-    "fb:init-session": "node fb-scraper-service.mjs init-session",
-    "fb:scrape": "node fb-scraper-service.mjs scrape",
-    "fb:loop": "node fb-scraper-service.mjs loop",
     "whatsapp": "node whatsapp-service.js",
     "lint": "eslint"
   },

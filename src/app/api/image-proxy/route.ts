@@ -1,8 +1,6 @@
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import { isFacebookImageUrl } from "@/lib/image-proxy";
-
 const ALLOWED_HOSTS = new Set([
   "images.unsplash.com",
   "api.qrserver.com",
@@ -12,10 +10,6 @@ const ALLOWED_HOSTS = new Set([
   "c.basemaps.cartocdn.com",
   "d.basemaps.cartocdn.com",
 ]);
-
-function isAllowedHost(hostname: string) {
-  return ALLOWED_HOSTS.has(hostname) || isFacebookImageUrl(`https://${hostname}/`);
-}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -34,7 +28,7 @@ export async function GET(req: Request) {
   if (target.protocol !== "https:") {
     return Response.json({ error: "Invalid protocol" }, { status: 400 });
   }
-  if (!isAllowedHost(target.hostname)) {
+  if (!ALLOWED_HOSTS.has(target.hostname)) {
     return Response.json({ error: "Host not allowed" }, { status: 400 });
   }
 
@@ -46,8 +40,6 @@ export async function GET(req: Request) {
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36",
         accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
         "accept-language": "zh-HK,zh;q=0.9,en;q=0.8",
-        referer: "https://www.facebook.com/",
-        origin: "https://www.facebook.com",
       },
       cache: "no-store",
     });
