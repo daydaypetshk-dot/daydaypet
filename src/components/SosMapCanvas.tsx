@@ -46,6 +46,9 @@ export type SosMapCanvasProps = {
   onMarkerClick: (id: string) => void;
   reportMarkerPosition: [number, number] | null;
   reportLocationIcon: DivIcon | null;
+  myLocationPosition?: [number, number] | null;
+  myLocationAccuracyMeters?: number | null;
+  myLocationIcon?: DivIcon | null;
 };
 
 export default function SosMapCanvas({
@@ -63,6 +66,9 @@ export default function SosMapCanvas({
   onMarkerClick,
   reportMarkerPosition,
   reportLocationIcon,
+  myLocationPosition,
+  myLocationAccuracyMeters,
+  myLocationIcon,
 }: SosMapCanvasProps) {
   const centerObj = center ? { lat: (center as any)[0], lng: (center as any)[1] } : null;
   if (!centerObj || centerObj.lat === undefined || centerObj.lng === undefined) {
@@ -197,6 +203,29 @@ export default function SosMapCanvas({
         const lng = parseLeafletCoordinate(reportMarkerPosition?.[1]);
         if (lat == null || lng == null || !reportLocationIcon) return null;
         return <Marker position={[lat, lng]} icon={reportLocationIcon} />;
+      })()}
+
+      {(() => {
+        const lat = parseLeafletCoordinate(myLocationPosition?.[0]);
+        const lng = parseLeafletCoordinate(myLocationPosition?.[1]);
+        if (lat == null || lng == null || !myLocationIcon) return null;
+        const accuracy = typeof myLocationAccuracyMeters === "number" && Number.isFinite(myLocationAccuracyMeters) ? myLocationAccuracyMeters : null;
+        return [
+          accuracy != null && accuracy > 0 ? (
+            <Circle
+              key="my-location:accuracy"
+              center={[lat, lng]}
+              radius={Math.min(Math.max(accuracy, 10), 350)}
+              pathOptions={{
+                color: "#3b82f6",
+                fillColor: "#3b82f6",
+                fillOpacity: 0.12,
+                weight: 1,
+              }}
+            />
+          ) : null,
+          <Marker key="my-location:marker" position={[lat, lng]} icon={myLocationIcon} />,
+        ];
       })()}
     </MapContainer>
   );

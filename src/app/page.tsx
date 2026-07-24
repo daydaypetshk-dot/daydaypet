@@ -174,6 +174,7 @@ type LifeGuideItem = GuidePlaceRow & {
   title: string;
   position: [number, number] | null;
   featureBadges: GuidePlaceFeatureBadge[];
+  distance_meters?: number | null;
 };
 
 const FOLLOW_DISTRICTS_STORAGE_KEY = "daydaypet_follow_districts_v2";
@@ -750,6 +751,39 @@ function buildGuidePlaceIcon(Lmod: typeof import("leaflet")): DivIcon {
   });
 }
 
+function buildMyLocationIcon(Lmod: typeof import("leaflet")): DivIcon {
+  return Lmod.divIcon({
+    className: "dp-div-icon",
+    html: `
+      <div style="display:flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:9999px;background:#2563eb;border:3px solid #ffffff;box-shadow:0 10px 24px rgba(37,99,235,0.25);">
+        <div style="width:8px;height:8px;border-radius:9999px;background:#ffffff;"></div>
+      </div>
+    `,
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
+  });
+}
+
+function haversineMeters(a: [number, number], b: [number, number]) {
+  const toRad = (v: number) => (v * Math.PI) / 180;
+  const R = 6371000;
+  const dLat = toRad(b[0] - a[0]);
+  const dLng = toRad(b[1] - a[1]);
+  const lat1 = toRad(a[0]);
+  const lat2 = toRad(b[0]);
+  const sinLat = Math.sin(dLat / 2);
+  const sinLng = Math.sin(dLng / 2);
+  const h = sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLng * sinLng;
+  return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+function formatDistanceMeters(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return "";
+  if (value < 1000) return `${Math.round(value)}m`;
+  const km = value / 1000;
+  return `${km.toFixed(km >= 10 ? 0 : 1)}km`;
+}
+
 function buildCoordinateKey(position: [number, number]) {
   return `${position[0].toFixed(6)},${position[1].toFixed(6)}`;
 }
@@ -853,6 +887,7 @@ function GuidePlaceListCard({ item, active, onClick }: GuidePlaceListCardProps) 
     ...badge,
     compact: badge.label.includes(" ") ? badge.label.split(" ").slice(1).join(" ").trim() : badge.label,
   }));
+  const distanceLabel = formatDistanceMeters(item.distance_meters ?? null);
 
   return (
     <button
@@ -869,9 +904,12 @@ function GuidePlaceListCard({ item, active, onClick }: GuidePlaceListCardProps) 
             <div className="truncate text-sm font-black text-slate-900">{item.title}</div>
             <div className="mt-1 line-clamp-2 text-xs font-semibold leading-relaxed text-slate-600">{item.address}</div>
           </div>
-          <span className="shrink-0 rounded-full bg-slate-100 px-2 py-1 text-[11px] font-black text-slate-700">
-            {item.district}
-          </span>
+          <div className="shrink-0 text-right">
+            <div className="rounded-full bg-slate-100 px-2 py-1 text-[11px] font-black text-slate-700">{item.district}</div>
+            {distanceLabel ? (
+              <div className="mt-1 text-[11px] font-black text-slate-500">{distanceLabel}</div>
+            ) : null}
+          </div>
         </div>
 
         <div className="mt-3 flex flex-wrap gap-1.5">
@@ -1065,6 +1103,8 @@ export default function Home() {
   const [isMobileExpanded, setIsMobileExpanded] = useState(false);
   const [isMdUp, setIsMdUp] = useState(false);
   const [selectedDistrict, setSelectedDistrict] = useState("全部");
+  const [myLocation, setMyLocation] = useState<{ lat: number; lng: number; accuracy: number | null } | null>(null);
+  const [isLocatingMyLocation, setIsLocatingMyLocation] = useState(false);
   const [isQuickDownloading, setIsQuickDownloading] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [iconByCaseId, setIconByCaseId] = useState<Map<string, DivIcon>>(new Map());
@@ -1182,6 +1222,11 @@ export default function Home() {
         )
           .map((id) => guideSubcategoryMap.get(id)?.name ?? null)
           .filter(Boolean) as string[];
+        const lat = parseLeafletCoordinate(item.latitude);
+        const lng = parseLeafletCoordinate(item.longitude);
+        const position = lat != null && lng != null ? ([lat, lng] as [number, number]) : null;
+        const distance_meters =
+          myLocation && position ? haversineMeters([myLocation.lat, myLocation.lng], position) : null;
         return {
           ...item,
           title: item.name,
@@ -1189,11 +1234,9 @@ export default function Home() {
           category_icon: category?.icon ?? "📍",
           subcategory_name: subcategoryNames[0] ?? "未分類",
           subcategory_names: subcategoryNames,
-          position:
-            parseLeafletCoordinate(item.latitude) != null && parseLeafletCoordinate(item.longitude) != null
-              ? [parseLeafletCoordinate(item.latitude)!, parseLeafletCoordinate(item.longitude)!]
-              : null,
+          position,
           featureBadges: getGuidePlaceFeatureBadges(item, facilityTags),
+          distance_meters,
         } satisfies LifeGuideItem;
       })
       .filter((item) => {
@@ -1202,7 +1245,16 @@ export default function Home() {
         if (selected === "全部") return true;
         return item.district === selected;
       });
-  }, [facilityTags, guideCategoryMap, guidePlaces, guideSubcategoryMap, lifeGuideSubcategory, selectedDistrict, selectedGuideCategory]);
+  }, [
+    facilityTags,
+    guideCategoryMap,
+    guidePlaces,
+    guideSubcategoryMap,
+    lifeGuideSubcategory,
+    myLocation,
+    selectedDistrict,
+    selectedGuideCategory,
+  ]);
 
   useEffect(() => {
     setSosBreedFilter("all");
@@ -1274,13 +1326,9 @@ export default function Home() {
     };
 
     void loadGuideCategories();
-    const timer = window.setInterval(() => {
-      void loadGuideCategories();
-    }, 15000);
 
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
     };
   }, []);
 
@@ -1308,13 +1356,9 @@ export default function Home() {
     };
 
     void loadGuidePlaces();
-    const timer = window.setInterval(() => {
-      void loadGuidePlaces();
-    }, 15000);
 
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
     };
   }, []);
 
@@ -1342,13 +1386,9 @@ export default function Home() {
     };
 
     void loadFacilityTags();
-    const timer = window.setInterval(() => {
-      void loadFacilityTags();
-    }, 15000);
 
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
     };
   }, []);
 
@@ -2548,6 +2588,11 @@ export default function Home() {
     return buildReportLocationIcon(leafletModule);
   }, [leafletModule]);
 
+  const myLocationIcon = useMemo(() => {
+    if (!leafletModule) return undefined;
+    return buildMyLocationIcon(leafletModule);
+  }, [leafletModule]);
+
   const mainMapCases = useMemo<SosMapCanvasProps["cases"]>(() => {
     if (mode !== "sos") return [];
     return filteredSosCases.map((c) => ({
@@ -2626,6 +2671,40 @@ export default function Home() {
     [filteredGuideItems, filteredSosCases, mode, setFocusedPetId],
   );
 
+  const handleLocateMyLocation = () => {
+    if (isLocatingMyLocation) return;
+    if (!navigator.geolocation) {
+      showToast("你的裝置不支援定位。");
+      return;
+    }
+    setIsLocatingMyLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const accuracy =
+          typeof pos.coords.accuracy === "number" && Number.isFinite(pos.coords.accuracy) ? pos.coords.accuracy : null;
+        setMyLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude, accuracy });
+        setReportMapFocus(null);
+        if (mode === "life") {
+          setGuideMapFocus({ center: [pos.coords.latitude, pos.coords.longitude], zoom: 16 });
+        } else {
+          setSosMapFocus({ center: [pos.coords.latitude, pos.coords.longitude], zoom: 16 });
+        }
+        setIsLocatingMyLocation(false);
+        showToast("📍 已定位到我的位置", "success");
+      },
+      (err) => {
+        setIsLocatingMyLocation(false);
+        const code = typeof err?.code === "number" ? err.code : 0;
+        if (code === 1) {
+          showToast("已拒絕定位權限，請到瀏覽器設定允許位置存取。");
+          return;
+        }
+        showToast("無法取得目前定位，請稍後再試。");
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 15000 },
+    );
+  };
+
   const handleListCaseClick = useCallback((c: SosCase) => {
     setReportMapFocus(null);
     setSosMapFocus({ center: c.position, zoom: 16 });
@@ -2675,6 +2754,10 @@ export default function Home() {
     if (isMdUp) return "1.5rem";
     return `calc(env(safe-area-inset-bottom) + ${shouldShowMobileBottomControls ? 84 : 20}px)`;
   }, [isMdUp, shouldShowMobileBottomControls]);
+  const myLocationFabBottom = useMemo(() => {
+    if (isMdUp) return "1.5rem";
+    return `calc(${mobileFabBottom} + 64px)`;
+  }, [isMdUp, mobileFabBottom]);
 
   useEffect(() => {
     if (mode !== "sos") return;
@@ -3166,9 +3249,9 @@ export default function Home() {
                     ))}
                   </div>
                 )
-              ) : isLoadingGuidePlaces ? (
+              ) : isLoadingGuidePlaces && guidePlaces.length === 0 ? (
                 <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600 ring-1 ring-slate-200">
-                  正在同步指南設施資料…
+                  正在載入指南設施資料…
                 </div>
               ) : filteredGuideItems.length === 0 ? (
                 <div className="rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600 ring-1 ring-slate-200">
@@ -3502,12 +3585,65 @@ export default function Home() {
             onMarkerClick={handleMapMarkerClick}
             reportMarkerPosition={reportMarkerPosition}
             reportLocationIcon={reportLocationIcon ?? null}
+            myLocationPosition={myLocation ? ([myLocation.lat, myLocation.lng] as [number, number]) : null}
+            myLocationAccuracyMeters={myLocation?.accuracy ?? null}
+            myLocationIcon={myLocationIcon ?? null}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-slate-200/70 text-sm font-black text-slate-700">
             地圖載入中...
           </div>
         )}
+
+        <div
+          className="pointer-events-none absolute right-4 z-[975] flex flex-col items-end gap-2 md:right-6"
+          style={{ bottom: myLocationFabBottom }}
+        >
+          <button
+            type="button"
+            onClick={handleLocateMyLocation}
+            disabled={isLocatingMyLocation}
+            aria-label="定位到我的位置"
+            className={[
+              "pointer-events-auto inline-flex h-12 w-12 items-center justify-center rounded-2xl shadow-xl ring-1 ring-black/10 backdrop-blur-md transition",
+              "bg-white/90 text-slate-800 hover:bg-white",
+              "disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-white/90",
+            ].join(" ")}
+          >
+            {isLocatingMyLocation ? (
+              <svg
+                viewBox="0 0 24 24"
+                className="h-5 w-5 animate-spin text-slate-700"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2" opacity="0.2" />
+                <path
+                  d="M21 12a9 9 0 0 0-9-9"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            ) : (
+              <svg
+                viewBox="0 0 24 24"
+                className="h-5 w-5"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M12 2v3m0 14v3M2 12h3m14 0h3"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+                <circle cx="12" cy="12" r="7" stroke="currentColor" strokeWidth="2" opacity="0.35" />
+                <circle cx="12" cy="12" r="2" fill="currentColor" />
+              </svg>
+            )}
+          </button>
+        </div>
 
         {shouldShowMobileBottomControls && !isMdUp ? (
           <div
@@ -3713,13 +3849,9 @@ export default function Home() {
                 ))}
               </div>
 
-              {isLoadingGuideCategories ? (
+              {isLoadingGuideCategories && guideCategories.length === 0 ? (
                 <div className="rounded-2xl bg-white/85 px-3 py-2 text-xs font-black text-slate-700 shadow ring-1 ring-black/10 backdrop-blur">
-                  正在同步指南分類…
-                </div>
-              ) : isLoadingGuidePlaces ? (
-                <div className="rounded-2xl bg-white/85 px-3 py-2 text-xs font-black text-slate-700 shadow ring-1 ring-black/10 backdrop-blur">
-                  正在同步指南設施…
+                  正在載入指南分類…
                 </div>
               ) : filteredGuideSubcategories.length > 0 ? (
                 <div className="mt-2 flex w-full flex-wrap gap-2">
@@ -4024,9 +4156,9 @@ export default function Home() {
                     ))}
                   </div>
                 )
-              ) : isLoadingGuidePlaces ? (
+              ) : isLoadingGuidePlaces && guidePlaces.length === 0 ? (
                 <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600 ring-1 ring-slate-200">
-                  正在同步指南設施資料…
+                  正在載入指南設施資料…
                 </div>
               ) : filteredGuideItems.length === 0 ? (
                 <div className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-600 ring-1 ring-slate-200">
@@ -4093,6 +4225,12 @@ export default function Home() {
                             <div className="text-base font-medium text-slate-800">
                               <span className="font-black">📍 詳細地址：</span>
                               {selectedGuidePlace.address}
+                            </div>
+                            <div className="text-base font-medium text-slate-800">
+                              <span className="font-black">📏 距離：</span>
+                              {myLocation && selectedGuidePlace.position
+                                ? formatDistanceMeters(selectedGuidePlace.distance_meters ?? null) || "—"
+                                : "允許定位以顯示距離"}
                             </div>
                             <div className="text-base font-medium text-slate-800">
                               <span className="font-black">⏰ 開放時間：</span>
