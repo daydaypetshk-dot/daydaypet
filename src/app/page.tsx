@@ -2743,6 +2743,16 @@ export default function Home() {
     if (isMdUp) return "1rem";
     return `calc(env(safe-area-inset-top) + ${Math.max(mobileHeaderHeight + 12, 88)}px)`;
   }, [isMdUp, mobileHeaderHeight]);
+  const topOverlayLeft = useMemo(() => {
+    if (isMdUp) return isListCollapsed ? 64 : 340;
+    return 56;
+  }, [isListCollapsed, isMdUp]);
+  const topBannerTop = useMemo(() => Math.max(mobileHeaderHeight + 8, 72), [mobileHeaderHeight]);
+  const topFiltersTop = useMemo(() => {
+    const base = Math.max(mobileHeaderHeight + 8, 72);
+    const bannerOffset = notificationPermissionState === "denied" ? (isMdUp ? 56 : 52) : 0;
+    return base + bannerOffset;
+  }, [isMdUp, mobileHeaderHeight, notificationPermissionState]);
   const contentTopOffset = useMemo(() => {
     const headerOffset = Math.max(mobileHeaderHeight, 64);
     return `${headerOffset}px`;
@@ -3318,13 +3328,12 @@ export default function Home() {
         </div>
       </div>
 
-      <div
-        ref={topFiltersRef}
-        className="pointer-events-none fixed inset-x-0 z-[1300] px-3 md:px-4"
-        style={{ top: `${Math.max(mobileHeaderHeight + 8, 72)}px` }}
-      >
-        <div className="ml-14 space-y-2 md:ml-16">
-          {notificationPermissionState === "denied" ? (
+      {notificationPermissionState === "denied" ? (
+        <div
+          className="pointer-events-none fixed left-1/2 z-[1350] w-full -translate-x-1/2 px-3 md:px-4"
+          style={{ top: `${topBannerTop}px` }}
+        >
+          <div className="flex w-full justify-center">
             <button
               type="button"
               onClick={openNotificationHelpModal}
@@ -3332,8 +3341,16 @@ export default function Home() {
             >
               🐾 哎呀，您的瀏覽器關閉了通知權限！點擊此處查看 3 秒開啟教學 ➔
             </button>
-          ) : null}
+          </div>
+        </div>
+      ) : null}
 
+      <div
+        ref={topFiltersRef}
+        className="pointer-events-none fixed right-0 z-[1300] px-3 md:px-4"
+        style={{ top: `${topFiltersTop}px`, left: `${topOverlayLeft}px` }}
+      >
+        <div className="space-y-2">
           {mode === "life" ? (
             <>
               <div className="pointer-events-auto flex flex-wrap gap-2">
@@ -3397,7 +3414,7 @@ export default function Home() {
             </>
           ) : (
             <>
-              <div className="pointer-events-auto scrollbar-none flex w-[calc(100vw-5.5rem)] flex-nowrap gap-2 overflow-x-auto whitespace-nowrap pb-1 md:w-[min(900px,calc(100vw-7rem))]">
+              <div className="pointer-events-auto scrollbar-none flex w-full flex-nowrap gap-2 overflow-x-auto whitespace-nowrap pb-1">
                 <SosSpeciesFilterButton
                   label="全部"
                   active={sosSpeciesFilter === "all"}
