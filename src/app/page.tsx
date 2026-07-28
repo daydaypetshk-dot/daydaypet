@@ -3729,7 +3729,7 @@ export default function Home() {
         <div
           className={[
             "pointer-events-none absolute inset-x-4 z-[980] md:inset-x-auto md:bottom-[180px]",
-            isListCollapsed ? "md:left-6 md:right-auto" : "md:right-6 md:left-auto",
+            isListCollapsed ? "md:left-16 md:right-auto" : "md:right-6 md:left-auto",
           ].join(" ")}
           style={isMdUp ? undefined : { bottom: mobileLegendBottom }}
         >
@@ -3833,7 +3833,7 @@ export default function Home() {
         <div ref={mobileHeaderRef} className="pointer-events-auto">
           {mode === "life" ? (
             <div className="space-y-2">
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 md:pl-12">
                 {guideCategories.map((category) => (
                   <button
                     key={category.id}
@@ -3857,7 +3857,7 @@ export default function Home() {
                   正在載入指南分類…
                 </div>
               ) : filteredGuideSubcategories.length > 0 ? (
-                <div className="mt-2 flex w-full flex-wrap gap-2">
+                <div className="mt-2 flex w-full flex-wrap gap-2 md:pl-12">
                   <button
                     type="button"
                     onClick={() => setLifeGuideSubcategory("all")}
@@ -3988,7 +3988,7 @@ export default function Home() {
                 </button>
               ) : null}
 
-              <div className="scrollbar-none flex w-full flex-nowrap gap-2 overflow-x-auto whitespace-nowrap pb-1">
+              <div className="scrollbar-none flex w-full flex-nowrap gap-2 overflow-x-auto whitespace-nowrap pb-1 md:pl-12">
                 <SosSpeciesFilterButton
                   label="全部"
                   active={sosSpeciesFilter === "all"}
@@ -4017,7 +4017,7 @@ export default function Home() {
               </div>
 
               {mode === "sos" && (sosSpeciesFilter === "cat" || sosSpeciesFilter === "dog" || sosSpeciesFilter === "bird") ? (
-                <div className="mt-2 flex w-full flex-wrap gap-2">
+                <div className="mt-2 flex w-full flex-wrap gap-2 md:pl-12">
                   <SosBreedFilterChip
                     label="全部"
                     active={sosBreedFilter === "all"}
