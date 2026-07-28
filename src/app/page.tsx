@@ -1169,6 +1169,8 @@ export default function Home() {
   const districtChannelRefs = useRef<RealtimeChannel[]>([]);
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
+  const topFiltersRef = useRef<HTMLDivElement | null>(null);
+  const [topFiltersHeight, setTopFiltersHeight] = useState(0);
   const pendingReportSyncingRef = useRef(false);
   const didAutoFocusRemoteCasesRef = useRef(false);
   const currentUserIdRef = useRef<string | null>(null);
@@ -1804,6 +1806,29 @@ export default function Home() {
       window.removeEventListener("resize", update);
     };
   }, [isMounted, isMdUp, mode, notificationPermissionState, sosSpeciesFilter, sosBreedFilter, lifeGuideCategory, lifeGuideSubcategory, navbarNotificationControlLabel, isLoggedIn, currentUserLabel]);
+
+  useEffect(() => {
+    if (!isMounted) {
+      setTopFiltersHeight(0);
+      return;
+    }
+    const el = topFiltersRef.current;
+    if (!el) {
+      setTopFiltersHeight(0);
+      return;
+    }
+    const update = () => setTopFiltersHeight(el.getBoundingClientRect().height);
+    update();
+    const frame = window.requestAnimationFrame(update);
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => update()) : null;
+    observer?.observe(el);
+    window.addEventListener("resize", update);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer?.disconnect();
+      window.removeEventListener("resize", update);
+    };
+  }, [isMounted, isMdUp, mode, notificationPermissionState, sosSpeciesFilter, sosBreedFilter, lifeGuideCategory, lifeGuideSubcategory, guideCategories.length, filteredGuideSubcategories.length]);
 
   useEffect(() => {
     const target = String(selectedDistrict || "").trim() || "全部";
@@ -2742,6 +2767,11 @@ export default function Home() {
     if (isMdUp) return "1rem";
     return `calc(env(safe-area-inset-top) + ${Math.max(mobileHeaderHeight + 12, 88)}px)`;
   }, [isMdUp, mobileHeaderHeight]);
+  const contentTopOffset = useMemo(() => {
+    const headerOffset = Math.max(mobileHeaderHeight, 64);
+    const filtersOffset = topFiltersHeight > 0 ? topFiltersHeight + 8 : 0;
+    return `${headerOffset + filtersOffset}px`;
+  }, [mobileHeaderHeight, topFiltersHeight]);
   const mobileMapInsetsStyle = useMemo<CSSProperties | undefined>(() => {
     if (isMdUp) return undefined;
     return undefined;
@@ -3314,6 +3344,7 @@ export default function Home() {
       </div>
 
       <div
+        ref={topFiltersRef}
         className="pointer-events-none fixed inset-x-0 z-[1300] px-3 md:px-4"
         style={{ top: `${Math.max(mobileHeaderHeight + 8, 72)}px` }}
       >
@@ -3443,7 +3474,7 @@ export default function Home() {
 
       <div
         className="absolute inset-x-0 bottom-0 md:flex"
-        style={{ top: `${Math.max(mobileHeaderHeight, 64)}px` }}
+        style={{ top: contentTopOffset }}
       >
         <div
           className={[
