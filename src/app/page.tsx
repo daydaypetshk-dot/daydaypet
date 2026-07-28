@@ -3727,7 +3727,10 @@ export default function Home() {
 
       {mode === "sos" && (isMdUp || !isMobileExpanded) ? (
         <div
-          className="pointer-events-none fixed inset-x-4 z-[980] md:absolute md:left-6 md:right-auto md:inset-x-auto md:bottom-[180px]"
+          className={[
+            "pointer-events-none absolute inset-x-4 z-[980] md:inset-x-auto md:bottom-[180px]",
+            isListCollapsed ? "md:left-6 md:right-auto" : "md:right-6 md:left-auto",
+          ].join(" ")}
           style={isMdUp ? undefined : { bottom: mobileLegendBottom }}
         >
           {isLegendExpanded ? (
@@ -3826,7 +3829,7 @@ export default function Home() {
         </div>
       ) : null}
 
-      <div className="pointer-events-none fixed inset-x-0 top-0 z-[900] px-3 pt-[calc(env(safe-area-inset-top)+0.5rem)] md:absolute md:px-4 md:pt-4">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-[900] px-3 pt-[calc(env(safe-area-inset-top)+0.5rem)] md:px-4 md:pt-4">
         <div ref={mobileHeaderRef} className="pointer-events-auto">
           {mode === "life" ? (
             <div className="space-y-2">
