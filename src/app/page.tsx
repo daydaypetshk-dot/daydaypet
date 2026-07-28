@@ -1786,7 +1786,7 @@ export default function Home() {
   }, [isMounted]);
 
   useEffect(() => {
-    if (!isMounted || isMdUp) {
+    if (!isMounted) {
       setMobileHeaderHeight(0);
       return;
     }
@@ -1803,7 +1803,7 @@ export default function Home() {
       observer?.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [isMounted, isMdUp, mode, notificationPermissionState, sosSpeciesFilter, sosBreedFilter, lifeGuideCategory]);
+  }, [isMounted, isMdUp, mode, notificationPermissionState, sosSpeciesFilter, sosBreedFilter, lifeGuideCategory, lifeGuideSubcategory, navbarNotificationControlLabel, isLoggedIn, currentUserLabel]);
 
   useEffect(() => {
     const target = String(selectedDistrict || "").trim() || "全部";
@@ -2739,7 +2739,7 @@ export default function Home() {
     ? true
     : !(isMobileExpanded && (mode === "sos" || mode === "life"));
   const mobileOverlayTop = useMemo(() => {
-    if (isMdUp) return "5rem";
+    if (isMdUp) return `${Math.max(mobileHeaderHeight + 12, 88)}px`;
     return `calc(env(safe-area-inset-top) + ${Math.max(mobileHeaderHeight + 12, 88)}px)`;
   }, [isMdUp, mobileHeaderHeight]);
   const mobileMapInsetsStyle = useMemo<CSSProperties | undefined>(() => {
@@ -3689,38 +3689,6 @@ export default function Home() {
                 </div>
               ) : null}
             </div>
-
-            <div className="pointer-events-auto w-full rounded-3xl bg-white/95 p-1 shadow-2xl ring-1 ring-black/5">
-              <div className={["grid gap-1", SOS_ENABLED ? "grid-cols-2" : "grid-cols-1"].join(" ")}>
-                <button
-                  type="button"
-                  onClick={() => setMode("life")}
-                  className={[
-                    "rounded-3xl px-4 py-3 text-center text-sm font-black",
-                    mode === "life"
-                      ? "bg-emerald-600 text-white shadow"
-                      : "bg-transparent text-zinc-800",
-                  ].join(" ")}
-                >
-                  🐾 香港寵物全指南
-                </button>
-
-                {SOS_ENABLED ? (
-                  <button
-                    type="button"
-                    onClick={() => setMode("sos")}
-                    className={[
-                      "rounded-3xl px-4 py-3 text-center text-sm font-black",
-                      mode === "sos"
-                        ? "bg-red-600 text-white shadow"
-                        : "bg-transparent text-zinc-800",
-                    ].join(" ")}
-                  >
-                    🚨 SOS尋寵地圖
-                  </button>
-                ) : null}
-              </div>
-            </div>
           </div>
         ) : null}
       </div>
@@ -3830,211 +3798,259 @@ export default function Home() {
       ) : null}
 
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[900] px-3 pt-[calc(env(safe-area-inset-top)+0.5rem)] md:px-4 md:pt-4">
-        <div ref={mobileHeaderRef} className="pointer-events-auto">
-          {mode === "life" ? (
-            <div className="space-y-2">
-              <div className="flex flex-wrap gap-2 md:pl-12">
-                {guideCategories.map((category) => (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() => setLifeGuideCategory(category.name)}
-                    className={[
-                      "rounded-full px-3 py-2 text-sm font-extrabold text-white shadow-lg",
-                      "ring-1 ring-black/10 transition",
-                      lifeGuideCategory === category.name
-                        ? "bg-orange-600"
-                        : "bg-orange-500/90 opacity-80 hover:opacity-100",
-                    ].join(" ")}
-                  >
-                    {category.icon} {category.name}
-                  </button>
-                ))}
+        <div ref={mobileHeaderRef} className="pointer-events-auto space-y-3">
+          <div className="rounded-[28px] bg-white/92 px-3 py-3 shadow-2xl ring-1 ring-black/10 backdrop-blur-xl md:px-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-3">
+                <div className="relative flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-red-500 via-orange-500 to-amber-400 text-sm font-black text-white shadow-lg">
+                  <span className="absolute inset-0 flex items-center justify-center">日</span>
+                  <img
+                    src="/logo.png"
+                    alt="日日寵 Logo"
+                    className="relative z-10 h-full w-full object-contain"
+                    loading="eager"
+                    onError={(event) => {
+                      event.currentTarget.style.display = "none";
+                    }}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <div className="truncate text-base font-black tracking-tight text-slate-900 md:text-lg">日日寵 DayDayPet</div>
+                  <div className="truncate text-[11px] font-semibold text-slate-500 md:text-xs">
+                    一個 Header 直達 SOS 尋寵地圖同香港寵物指南
+                  </div>
+                </div>
               </div>
 
-              {isLoadingGuideCategories && guideCategories.length === 0 ? (
-                <div className="rounded-2xl bg-white/85 px-3 py-2 text-xs font-black text-slate-700 shadow ring-1 ring-black/10 backdrop-blur">
-                  正在載入指南分類…
-                </div>
-              ) : filteredGuideSubcategories.length > 0 ? (
-                <div className="mt-2 flex w-full flex-wrap gap-2 md:pl-12">
+              <div className="order-3 md:order-2 md:flex-1 md:px-4">
+                <div className={["grid rounded-2xl bg-slate-100 p-1", SOS_ENABLED ? "grid-cols-2" : "grid-cols-1"].join(" ")}>
                   <button
                     type="button"
-                    onClick={() => setLifeGuideSubcategory("all")}
+                    onClick={() => setMode("sos")}
                     className={[
-                      "rounded-full px-3 py-2 text-xs font-black shadow-lg ring-1 transition",
-                      lifeGuideSubcategory === "all"
-                        ? "bg-white text-orange-700 ring-orange-200"
-                        : "bg-white/85 text-slate-700 ring-black/10 hover:bg-white",
+                      "rounded-2xl px-4 py-3 text-center text-sm font-black transition",
+                      mode === "sos" ? "bg-red-600 text-white shadow" : "bg-transparent text-slate-700 hover:bg-white/80",
                     ].join(" ")}
                   >
-                    全部
+                    🚨 SOS 尋寵地圖
                   </button>
-                  {filteredGuideSubcategories.map((subcategory) => (
+                  {SOS_ENABLED ? (
                     <button
-                      key={subcategory.id}
                       type="button"
-                      onClick={() => setLifeGuideSubcategory(subcategory.name)}
+                      onClick={() => setMode("life")}
+                      className={[
+                        "rounded-2xl px-4 py-3 text-center text-sm font-black transition",
+                        mode === "life" ? "bg-emerald-600 text-white shadow" : "bg-transparent text-slate-700 hover:bg-white/80",
+                      ].join(" ")}
+                    >
+                      🐾 香港寵物指南
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="order-2 flex items-center justify-end gap-2 md:order-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNotificationPanelOpen((p) => !p);
+                    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+                    if (isLoggedIn) {
+                      void fetchAppNotifications();
+                    }
+                  }}
+                  className="relative inline-flex max-w-[170px] items-center gap-2 rounded-2xl bg-slate-100 px-3 py-2.5 text-left text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200/80 md:max-w-[250px]"
+                >
+                  <span className="text-base">🔔</span>
+                  <span className="truncate text-xs font-black">
+                    <span className="md:hidden">接收通知</span>
+                    <span className="hidden md:inline">{navbarNotificationControlLabel}</span>
+                  </span>
+                  {unreadCount > 0 ? (
+                    <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-black text-white">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  ) : null}
+                </button>
+
+                {!isLoggedIn ? (
+                  <button
+                    type="button"
+                    onClick={() => setAuthModalOpen(true)}
+                    className="rounded-2xl bg-slate-900 px-3 py-2.5 text-xs font-black text-white shadow-sm ring-1 ring-slate-900/10 md:text-sm"
+                    aria-label="登入或註冊"
+                  >
+                    <span className="md:hidden">👤</span>
+                    <span className="hidden md:inline">👤 帳號</span>
+                  </button>
+                ) : (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setAccountMenuOpen((prev) => !prev)}
+                      className="flex items-center gap-2 rounded-2xl bg-slate-100 px-2.5 py-2 text-sm font-black text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200/80"
+                    >
+                      {currentUserAvatar ? (
+                        <img
+                          src={currentUserAvatar}
+                          alt={currentUserLabel}
+                          className="h-8 w-8 rounded-full object-cover ring-2 ring-white"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-xs font-black text-slate-700">
+                          {currentUserLabel.slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                      <span className="hidden max-w-[96px] truncate text-xs font-black text-slate-800 sm:inline">
+                        {currentUserLabel}
+                      </span>
+                    </button>
+                    {accountMenuOpen ? (
+                      <div className="absolute right-0 top-12 z-[1500] w-48 overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
+                        <div className="border-b border-slate-100 px-4 py-3">
+                          <div className="text-xs font-black text-slate-900">{currentUserLabel}</div>
+                          <div className="mt-1 truncate text-[11px] font-semibold text-slate-500">
+                            {currentUser?.email || "已登入會員"}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleSignOut()}
+                          className="w-full px-4 py-3 text-left text-sm font-black text-slate-900 hover:bg-slate-50"
+                        >
+                          🚪 登出帳號
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            {notificationPermissionState === "denied" ? (
+              <button
+                type="button"
+                onClick={openNotificationHelpModal}
+                className="w-full rounded-2xl bg-black/80 px-3 py-2.5 text-left text-xs font-black text-white shadow-xl ring-1 ring-white/10 backdrop-blur md:px-4 md:py-3 md:text-sm"
+              >
+                🐾 哎呀，您的瀏覽器關閉了通知權限！點擊此處查看 3 秒開啟教學 ➔
+              </button>
+            ) : null}
+
+            {mode === "life" ? (
+              <>
+                <div className="flex flex-wrap gap-2 md:pl-12">
+                  {guideCategories.map((category) => (
+                    <button
+                      key={category.id}
+                      type="button"
+                      onClick={() => setLifeGuideCategory(category.name)}
+                      className={[
+                        "rounded-full px-3 py-2 text-sm font-extrabold text-white shadow-lg",
+                        "ring-1 ring-black/10 transition",
+                        lifeGuideCategory === category.name
+                          ? "bg-orange-600"
+                          : "bg-orange-500/90 opacity-80 hover:opacity-100",
+                      ].join(" ")}
+                    >
+                      {category.icon} {category.name}
+                    </button>
+                  ))}
+                </div>
+
+                {isLoadingGuideCategories && guideCategories.length === 0 ? (
+                  <div className="rounded-2xl bg-white/85 px-3 py-2 text-xs font-black text-slate-700 shadow ring-1 ring-black/10 backdrop-blur">
+                    正在載入指南分類…
+                  </div>
+                ) : filteredGuideSubcategories.length > 0 ? (
+                  <div className="mt-2 flex w-full flex-wrap gap-2 md:pl-12">
+                    <button
+                      type="button"
+                      onClick={() => setLifeGuideSubcategory("all")}
                       className={[
                         "rounded-full px-3 py-2 text-xs font-black shadow-lg ring-1 transition",
-                        lifeGuideSubcategory === subcategory.name
+                        lifeGuideSubcategory === "all"
                           ? "bg-white text-orange-700 ring-orange-200"
                           : "bg-white/85 text-slate-700 ring-black/10 hover:bg-white",
                       ].join(" ")}
                     >
-                      {subcategory.name}
+                      全部
                     </button>
-                  ))}
-                </div>
-              ) : guideCategories.length === 0 ? (
-                <div className="rounded-2xl bg-white/85 px-3 py-2 text-xs font-black text-slate-700 shadow ring-1 ring-black/10 backdrop-blur">
-                  暫時未有指南分類，請先到後台新增。
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <div className="rounded-2xl bg-red-600 px-3 py-2.5 shadow-lg ring-1 ring-black/10 md:px-4 md:py-3">
-                <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 md:flex md:justify-between md:gap-3">
-                  <div className="min-w-0 text-xs font-black tracking-tight text-white md:text-sm">
-                    🐾 日日寵 尋寵地圖
-                  </div>
-                  <div className="flex items-center gap-1.5 md:gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setNotificationPanelOpen((p) => !p);
-                        setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
-                        if (isLoggedIn) {
-                          void fetchAppNotifications();
-                        }
-                      }}
-                      className="relative flex items-center gap-2 rounded-xl bg-white/15 px-2.5 py-2 ring-1 ring-white/20 md:max-w-[240px] md:px-3"
-                    >
-                      <span className="text-base">🔔</span>
-                      <span className="hidden truncate text-xs font-black text-white md:inline">
-                        {navbarNotificationControlLabel} <span className="text-white/70">▼</span>
-                      </span>
-                      {unreadCount > 0 ? (
-                        <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-black text-white">
-                          {unreadCount > 99 ? "99+" : unreadCount}
-                        </span>
-                      ) : null}
-                    </button>
-
-                    {!isLoggedIn ? (
+                    {filteredGuideSubcategories.map((subcategory) => (
                       <button
+                        key={subcategory.id}
                         type="button"
-                        onClick={() => setAuthModalOpen(true)}
-                        className="rounded-xl bg-white px-2.5 py-2 text-sm font-black text-red-600 shadow ring-1 ring-white/60 md:px-3"
-                        aria-label="登入或註冊"
+                        onClick={() => setLifeGuideSubcategory(subcategory.name)}
+                        className={[
+                          "rounded-full px-3 py-2 text-xs font-black shadow-lg ring-1 transition",
+                          lifeGuideSubcategory === subcategory.name
+                            ? "bg-white text-orange-700 ring-orange-200"
+                            : "bg-white/85 text-slate-700 ring-black/10 hover:bg-white",
+                        ].join(" ")}
                       >
-                        <span className="md:hidden">👤</span>
-                        <span className="hidden md:inline">👤 登入 / 註冊</span>
+                        {subcategory.name}
                       </button>
-                    ) : (
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setAccountMenuOpen((prev) => !prev)}
-                          className="flex items-center gap-2 rounded-xl bg-white/15 px-2 py-1.5 text-sm font-black text-white ring-1 ring-white/20"
-                        >
-                          {currentUserAvatar ? (
-                            <img
-                              src={currentUserAvatar}
-                              alt={currentUserLabel}
-                              className="h-8 w-8 rounded-full object-cover ring-2 ring-white/70"
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-xs font-black text-red-600">
-                              {currentUserLabel.slice(0, 1).toUpperCase()}
-                            </div>
-                          )}
-                          <span className="hidden max-w-[84px] truncate text-xs font-black text-white sm:inline">
-                            {currentUserLabel}
-                          </span>
-                        </button>
-                        {accountMenuOpen ? (
-                          <div className="absolute right-0 top-12 z-[1500] w-48 overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
-                            <div className="border-b border-slate-100 px-4 py-3">
-                              <div className="text-xs font-black text-slate-900">{currentUserLabel}</div>
-                              <div className="mt-1 truncate text-[11px] font-semibold text-slate-500">
-                                {currentUser?.email || "已登入會員"}
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => void handleSignOut()}
-                              className="w-full px-4 py-3 text-left text-sm font-black text-slate-900 hover:bg-slate-50"
-                            >
-                              🚪 登出帳號
-                            </button>
-                          </div>
-                        ) : null}
-                      </div>
-                    )}
+                    ))}
                   </div>
-                </div>
-              </div>
-
-              {notificationPermissionState === "denied" ? (
-                <button
-                  type="button"
-                  onClick={openNotificationHelpModal}
-                  className="w-full rounded-2xl bg-black/80 px-3 py-2.5 text-left text-xs font-black text-white shadow-xl ring-1 ring-white/10 backdrop-blur md:px-4 md:py-3 md:text-sm"
-                >
-                  🐾 哎呀，您的瀏覽器關閉了通知權限！點擊此處查看 3 秒開啟教學 ➔
-                </button>
-              ) : null}
-
-              <div className="scrollbar-none flex w-full flex-nowrap gap-2 overflow-x-auto whitespace-nowrap pb-1 md:pl-12">
-                <SosSpeciesFilterButton
-                  label="全部"
-                  active={sosSpeciesFilter === "all"}
-                  onClick={() => setSosSpeciesFilter("all")}
-                />
-                <SosSpeciesFilterButton
-                  label="🐱 貓貓"
-                  active={sosSpeciesFilter === "cat"}
-                  onClick={() => setSosSpeciesFilter("cat")}
-                />
-                <SosSpeciesFilterButton
-                  label="🐶 狗狗"
-                  active={sosSpeciesFilter === "dog"}
-                  onClick={() => setSosSpeciesFilter("dog")}
-                />
-                <SosSpeciesFilterButton
-                  label="🦜 鸚鵡/雀鳥"
-                  active={sosSpeciesFilter === "bird"}
-                  onClick={() => setSosSpeciesFilter("bird")}
-                />
-                <SosSpeciesFilterButton
-                  label="🐹 其他"
-                  active={sosSpeciesFilter === "other"}
-                  onClick={() => setSosSpeciesFilter("other")}
-                />
-              </div>
-
-              {mode === "sos" && (sosSpeciesFilter === "cat" || sosSpeciesFilter === "dog" || sosSpeciesFilter === "bird") ? (
-                <div className="mt-2 flex w-full flex-wrap gap-2 md:pl-12">
-                  <SosBreedFilterChip
+                ) : guideCategories.length === 0 ? (
+                  <div className="rounded-2xl bg-white/85 px-3 py-2 text-xs font-black text-slate-700 shadow ring-1 ring-black/10 backdrop-blur">
+                    暫時未有指南分類，請先到後台新增。
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <div className="scrollbar-none flex w-full flex-nowrap gap-2 overflow-x-auto whitespace-nowrap pb-1 md:pl-12">
+                  <SosSpeciesFilterButton
                     label="全部"
-                    active={sosBreedFilter === "all"}
-                    onClick={() => setSosBreedFilter("all")}
+                    active={sosSpeciesFilter === "all"}
+                    onClick={() => setSosSpeciesFilter("all")}
                   />
-                  {filteredSosBreedOptions.map((item) => (
-                    <SosBreedFilterChip
-                      key={item.id}
-                      label={item.breed_name}
-                      active={sosBreedFilter === item.breed_name}
-                      onClick={() => setSosBreedFilter(item.breed_name)}
-                    />
-                  ))}
+                  <SosSpeciesFilterButton
+                    label="🐱 貓貓"
+                    active={sosSpeciesFilter === "cat"}
+                    onClick={() => setSosSpeciesFilter("cat")}
+                  />
+                  <SosSpeciesFilterButton
+                    label="🐶 狗狗"
+                    active={sosSpeciesFilter === "dog"}
+                    onClick={() => setSosSpeciesFilter("dog")}
+                  />
+                  <SosSpeciesFilterButton
+                    label="🦜 鸚鵡/雀鳥"
+                    active={sosSpeciesFilter === "bird"}
+                    onClick={() => setSosSpeciesFilter("bird")}
+                  />
+                  <SosSpeciesFilterButton
+                    label="🐹 其他"
+                    active={sosSpeciesFilter === "other"}
+                    onClick={() => setSosSpeciesFilter("other")}
+                  />
                 </div>
-              ) : null}
-            </div>
-          )}
+
+                {mode === "sos" && (sosSpeciesFilter === "cat" || sosSpeciesFilter === "dog" || sosSpeciesFilter === "bird") ? (
+                  <div className="mt-2 flex w-full flex-wrap gap-2 md:pl-12">
+                    <SosBreedFilterChip
+                      label="全部"
+                      active={sosBreedFilter === "all"}
+                      onClick={() => setSosBreedFilter("all")}
+                    />
+                    {filteredSosBreedOptions.map((item) => (
+                      <SosBreedFilterChip
+                        key={item.id}
+                        label={item.breed_name}
+                        active={sosBreedFilter === item.breed_name}
+                        onClick={() => setSosBreedFilter(item.breed_name)}
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -4043,9 +4059,7 @@ export default function Home() {
           <div
             className={[
               "pointer-events-none fixed inset-x-0 z-[950] pb-[env(safe-area-inset-bottom)]",
-              mode === "sos"
-                ? "bottom-[calc(env(safe-area-inset-bottom)+70px)] md:bottom-0"
-                : "bottom-0",
+              "bottom-0",
             ].join(" ")}
           >
             <div className="pointer-events-auto px-4 pb-4">
@@ -4057,41 +4071,6 @@ export default function Home() {
                 >
                   ➕ 報料尋寵
                 </button>
-              </div>
-
-              <div className="mt-3 rounded-3xl bg-white/95 p-1 shadow-2xl ring-1 ring-black/5">
-                <div className={["grid gap-1", SOS_ENABLED ? "grid-cols-2" : "grid-cols-1"].join(" ")}>
-                  <button
-                    type="button"
-                    onClick={() => setMode("life")}
-                    className={[
-                      "rounded-3xl px-4 py-3 text-center text-sm font-black",
-                      mode === "life"
-                        ? "bg-emerald-600 text-white shadow"
-                        : "bg-transparent text-zinc-800",
-                    ].join(" ")}
-                  >
-                    🐾 香港寵物全指南
-                  </button>
-                  {SOS_ENABLED ? (
-                    <button
-                      type="button"
-                      onClick={() => setMode("sos")}
-                      className={[
-                        "rounded-3xl px-4 py-3 text-center text-sm font-black",
-                        mode === "sos"
-                          ? "bg-red-600 text-white shadow"
-                          : "bg-transparent text-zinc-800",
-                      ].join(" ")}
-                    >
-                      🚨 SOS尋寵地圖
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-
-              <div className="mt-3 text-center text-[11px] font-medium text-white/80 drop-shadow">
-                日日寵 · Mobile Web
               </div>
             </div>
           </div>
