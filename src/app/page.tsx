@@ -1170,7 +1170,6 @@ export default function Home() {
   const mobileHeaderRef = useRef<HTMLDivElement | null>(null);
   const [mobileHeaderHeight, setMobileHeaderHeight] = useState(0);
   const topFiltersRef = useRef<HTMLDivElement | null>(null);
-  const [topFiltersHeight, setTopFiltersHeight] = useState(0);
   const pendingReportSyncingRef = useRef(false);
   const didAutoFocusRemoteCasesRef = useRef(false);
   const currentUserIdRef = useRef<string | null>(null);
@@ -1806,29 +1805,6 @@ export default function Home() {
       window.removeEventListener("resize", update);
     };
   }, [isMounted, isMdUp, mode, notificationPermissionState, sosSpeciesFilter, sosBreedFilter, lifeGuideCategory, lifeGuideSubcategory, navbarNotificationControlLabel, isLoggedIn, currentUserLabel]);
-
-  useEffect(() => {
-    if (!isMounted) {
-      setTopFiltersHeight(0);
-      return;
-    }
-    const el = topFiltersRef.current;
-    if (!el) {
-      setTopFiltersHeight(0);
-      return;
-    }
-    const update = () => setTopFiltersHeight(el.getBoundingClientRect().height);
-    update();
-    const frame = window.requestAnimationFrame(update);
-    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(() => update()) : null;
-    observer?.observe(el);
-    window.addEventListener("resize", update);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      observer?.disconnect();
-      window.removeEventListener("resize", update);
-    };
-  }, [isMounted, isMdUp, mode, notificationPermissionState, sosSpeciesFilter, sosBreedFilter, lifeGuideCategory, lifeGuideSubcategory, guideCategories.length, filteredGuideSubcategories.length]);
 
   useEffect(() => {
     const target = String(selectedDistrict || "").trim() || "全部";
@@ -2769,9 +2745,8 @@ export default function Home() {
   }, [isMdUp, mobileHeaderHeight]);
   const contentTopOffset = useMemo(() => {
     const headerOffset = Math.max(mobileHeaderHeight, 64);
-    const filtersOffset = topFiltersHeight > 0 ? topFiltersHeight + 8 : 0;
-    return `${headerOffset + filtersOffset}px`;
-  }, [mobileHeaderHeight, topFiltersHeight]);
+    return `${headerOffset}px`;
+  }, [mobileHeaderHeight]);
   const mobileMapInsetsStyle = useMemo<CSSProperties | undefined>(() => {
     if (isMdUp) return undefined;
     return undefined;
@@ -3348,12 +3323,12 @@ export default function Home() {
         className="pointer-events-none fixed inset-x-0 z-[1300] px-3 md:px-4"
         style={{ top: `${Math.max(mobileHeaderHeight + 8, 72)}px` }}
       >
-        <div className="pointer-events-auto space-y-2">
+        <div className="ml-14 space-y-2 md:ml-16">
           {notificationPermissionState === "denied" ? (
             <button
               type="button"
               onClick={openNotificationHelpModal}
-              className="w-full rounded-2xl bg-black/80 px-3 py-2.5 text-left text-xs font-black text-white shadow-xl ring-1 ring-white/10 backdrop-blur md:px-4 md:py-3 md:text-sm"
+              className="pointer-events-auto inline-flex max-w-[min(92vw,520px)] items-center rounded-full bg-black/85 px-4 py-2 text-left text-xs font-black text-white shadow-xl ring-1 ring-black/20 backdrop-blur md:px-4 md:py-2.5 md:text-sm"
             >
               🐾 哎呀，您的瀏覽器關閉了通知權限！點擊此處查看 3 秒開啟教學 ➔
             </button>
@@ -3361,7 +3336,7 @@ export default function Home() {
 
           {mode === "life" ? (
             <>
-              <div className="flex flex-wrap gap-2 md:pl-14">
+              <div className="pointer-events-auto flex flex-wrap gap-2">
                 {guideCategories.map((category) => (
                   <button
                     key={category.id}
@@ -3381,11 +3356,11 @@ export default function Home() {
               </div>
 
               {isLoadingGuideCategories && guideCategories.length === 0 ? (
-                <div className="rounded-2xl bg-white/90 px-3 py-2 text-xs font-black text-slate-700 shadow-lg ring-1 ring-black/10 backdrop-blur">
+                <div className="pointer-events-auto inline-flex rounded-2xl bg-white/90 px-3 py-2 text-xs font-black text-slate-700 shadow-lg ring-1 ring-black/10 backdrop-blur">
                   正在載入指南分類…
                 </div>
               ) : filteredGuideSubcategories.length > 0 ? (
-                <div className="mt-2 flex w-full flex-wrap gap-2 md:pl-14">
+                <div className="pointer-events-auto mt-2 flex w-full flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={() => setLifeGuideSubcategory("all")}
@@ -3415,14 +3390,14 @@ export default function Home() {
                   ))}
                 </div>
               ) : guideCategories.length === 0 ? (
-                <div className="rounded-2xl bg-white/90 px-3 py-2 text-xs font-black text-slate-700 shadow-lg ring-1 ring-black/10 backdrop-blur">
+                <div className="pointer-events-auto inline-flex rounded-2xl bg-white/90 px-3 py-2 text-xs font-black text-slate-700 shadow-lg ring-1 ring-black/10 backdrop-blur">
                   暫時未有指南分類，請先到後台新增。
                 </div>
               ) : null}
             </>
           ) : (
             <>
-              <div className="scrollbar-none flex w-full flex-nowrap gap-2 overflow-x-auto whitespace-nowrap pb-1 md:pl-14">
+              <div className="pointer-events-auto scrollbar-none flex w-[calc(100vw-5.5rem)] flex-nowrap gap-2 overflow-x-auto whitespace-nowrap pb-1 md:w-[min(900px,calc(100vw-7rem))]">
                 <SosSpeciesFilterButton
                   label="全部"
                   active={sosSpeciesFilter === "all"}
@@ -3451,7 +3426,7 @@ export default function Home() {
               </div>
 
               {mode === "sos" && (sosSpeciesFilter === "cat" || sosSpeciesFilter === "dog" || sosSpeciesFilter === "bird") ? (
-                <div className="mt-2 flex w-full flex-wrap gap-2 md:pl-14">
+                <div className="pointer-events-auto mt-2 flex w-full flex-wrap gap-2">
                   <SosBreedFilterChip
                     label="全部"
                     active={sosBreedFilter === "all"}
