@@ -3727,8 +3727,8 @@ export default function Home() {
 
       {mode === "sos" && (isMdUp || !isMobileExpanded) ? (
         <div
-          className="pointer-events-none fixed inset-x-4 z-[980] md:absolute md:left-6 md:right-auto md:inset-x-auto"
-          style={{ bottom: mobileLegendBottom }}
+          className="pointer-events-none fixed inset-x-4 z-[980] md:absolute md:left-6 md:right-auto md:inset-x-auto md:bottom-[180px]"
+          style={isMdUp ? undefined : { bottom: mobileLegendBottom }}
         >
           {isLegendExpanded ? (
             <div className="pointer-events-auto mx-auto w-full max-w-sm max-h-[240px] overflow-y-auto rounded-3xl bg-white/92 p-3 shadow-2xl ring-1 ring-black/10 backdrop-blur-md md:mx-0 md:w-[280px] md:max-h-[300px]">
