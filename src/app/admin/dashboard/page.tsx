@@ -618,6 +618,8 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     void refreshAllBoards("approved");
+    void loadGuidePlaces();
+    void loadStagedPlaces();
   }, []);
 
   useEffect(() => {
@@ -990,26 +992,6 @@ export default function AdminDashboardPage() {
   };
 
   useEffect(() => {
-    const next = guidePlaceSearchInput.trim();
-    const handle = window.setTimeout(() => {
-      setGuidePlaceSearch(next);
-      setGuidePlacePage(1);
-    }, 350);
-
-    return () => window.clearTimeout(handle);
-  }, [guidePlaceSearchInput]);
-
-  useEffect(() => {
-    const next = stagedPlaceSearchInput.trim();
-    const handle = window.setTimeout(() => {
-      setStagedPlaceSearch(next);
-      setStagedPlacePage(1);
-    }, 350);
-
-    return () => window.clearTimeout(handle);
-  }, [stagedPlaceSearchInput]);
-
-  useEffect(() => {
     setGuideSubcategoryForm((prev) => {
       if (guideCategories.length === 0) {
         return prev.category_id ? { ...prev, category_id: "" } : prev;
@@ -1157,14 +1139,16 @@ export default function AdminDashboardPage() {
     setStagedPlacePage(stagedPlaceTotalPages);
   }, [stagedPlacePage, stagedPlaceTotalPages]);
 
-  const loadStagedPlaces = async () => {
+  const loadStagedPlaces = async (options?: { page?: number; search?: string }) => {
+    const page = options?.page ?? stagedPlacePage;
+    const search = options?.search ?? stagedPlaceSearch;
     setLoadingStagedPlaces(true);
     try {
       const params = new URLSearchParams();
       params.set("status", "pending");
-      params.set("page", String(stagedPlacePage));
+      params.set("page", String(page));
       params.set("pageSize", String(STAGED_PLACES_PAGE_SIZE));
-      if (stagedPlaceSearch) params.set("q", stagedPlaceSearch);
+      if (search) params.set("q", search);
 
       const res = await fetch(`/api/admin/staged-places?${params.toString()}`, { method: "GET", cache: "no-store" });
       const json = (await res.json().catch(() => null)) as
@@ -1186,13 +1170,15 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const loadGuidePlaces = async () => {
+  const loadGuidePlaces = async (options?: { page?: number; search?: string }) => {
+    const page = options?.page ?? guidePlacePage;
+    const search = options?.search ?? guidePlaceSearch;
     setLoadingGuidePlaces(true);
     try {
       const params = new URLSearchParams();
-      params.set("page", String(guidePlacePage));
+      params.set("page", String(page));
       params.set("pageSize", String(GUIDE_PLACES_PAGE_SIZE));
-      if (guidePlaceSearch) params.set("q", guidePlaceSearch);
+      if (search) params.set("q", search);
 
       const res = await fetch(`/api/admin/guide-places?${params.toString()}`, { method: "GET", cache: "no-store" });
       const json = (await res.json().catch(() => null)) as
@@ -1220,13 +1206,31 @@ export default function AdminDashboardPage() {
     }
   };
 
-  useEffect(() => {
-    void loadGuidePlaces();
-  }, [guidePlaceSearch, guidePlacePage]);
+  const applyGuidePlaceSearch = async () => {
+    const nextSearch = guidePlaceSearchInput.trim();
+    setGuidePlaceSearch(nextSearch);
+    setGuidePlacePage(1);
+    await loadGuidePlaces({ page: 1, search: nextSearch });
+  };
 
-  useEffect(() => {
-    void loadStagedPlaces();
-  }, [stagedPlaceSearch, stagedPlacePage]);
+  const applyStagedPlaceSearch = async () => {
+    const nextSearch = stagedPlaceSearchInput.trim();
+    setStagedPlaceSearch(nextSearch);
+    setStagedPlacePage(1);
+    await loadStagedPlaces({ page: 1, search: nextSearch });
+  };
+
+  const goToGuidePlacePage = async (nextPage: number) => {
+    const clamped = Math.min(guidePlaceTotalPages, Math.max(1, nextPage));
+    setGuidePlacePage(clamped);
+    await loadGuidePlaces({ page: clamped });
+  };
+
+  const goToStagedPlacePage = async (nextPage: number) => {
+    const clamped = Math.min(stagedPlaceTotalPages, Math.max(1, nextPage));
+    setStagedPlacePage(clamped);
+    await loadStagedPlaces({ page: clamped });
+  };
 
   const handleGuidePlaceImageUpload = async (files?: FileList | File[]) => {
     const list = Array.from(files ?? []).filter(Boolean);
@@ -3804,6 +3808,9 @@ export default function AdminDashboardPage() {
                   <input
                     value={stagedPlaceSearchInput}
                     onChange={(e) => setStagedPlaceSearchInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void applyStagedPlaceSearch();
+                    }}
                     placeholder="輸入地點名稱或地區（例如：西貢區 / 公園）"
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
                   />
@@ -3819,7 +3826,18 @@ export default function AdminDashboardPage() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setStagedPlacePage((prev) => Math.max(1, prev - 1))}
+                      onClick={() => void applyStagedPlaceSearch()}
+                      disabled={loadingStagedPlaces}
+                      className={[
+                        "rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white",
+                        loadingStagedPlaces ? "opacity-50" : "hover:bg-slate-800",
+                      ].join(" ")}
+                    >
+                      搜尋
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void goToStagedPlacePage(stagedPlacePage - 1)}
                       disabled={loadingStagedPlaces || stagedPlacePage <= 1}
                       className={[
                         "rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-800 ring-1 ring-slate-200",
@@ -3830,7 +3848,7 @@ export default function AdminDashboardPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setStagedPlacePage((prev) => Math.min(stagedPlaceTotalPages, prev + 1))}
+                      onClick={() => void goToStagedPlacePage(stagedPlacePage + 1)}
                       disabled={loadingStagedPlaces || stagedPlacePage >= stagedPlaceTotalPages}
                       className={[
                         "rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-800 ring-1 ring-slate-200",
@@ -4538,6 +4556,9 @@ export default function AdminDashboardPage() {
                   <input
                     value={guidePlaceSearchInput}
                     onChange={(e) => setGuidePlaceSearchInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") void applyGuidePlaceSearch();
+                    }}
                     placeholder="輸入地點名稱或地區（例如：西貢區 / 動物醫院）"
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
                   />
@@ -4553,7 +4574,18 @@ export default function AdminDashboardPage() {
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => setGuidePlacePage((prev) => Math.max(1, prev - 1))}
+                      onClick={() => void applyGuidePlaceSearch()}
+                      disabled={loadingGuidePlaces}
+                      className={[
+                        "rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white",
+                        loadingGuidePlaces ? "opacity-50" : "hover:bg-slate-800",
+                      ].join(" ")}
+                    >
+                      搜尋
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void goToGuidePlacePage(guidePlacePage - 1)}
                       disabled={loadingGuidePlaces || guidePlacePage <= 1}
                       className={[
                         "rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-800 ring-1 ring-slate-200",
@@ -4564,7 +4596,7 @@ export default function AdminDashboardPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setGuidePlacePage((prev) => Math.min(guidePlaceTotalPages, prev + 1))}
+                      onClick={() => void goToGuidePlacePage(guidePlacePage + 1)}
                       disabled={loadingGuidePlaces || guidePlacePage >= guidePlaceTotalPages}
                       className={[
                         "rounded-xl bg-white px-3 py-2 text-xs font-black text-slate-800 ring-1 ring-slate-200",

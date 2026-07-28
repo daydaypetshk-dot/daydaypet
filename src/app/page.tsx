@@ -2748,7 +2748,7 @@ export default function Home() {
   }, [isMdUp]);
   const mobileLegendBottom = useMemo(() => {
     if (isMdUp) return "1.5rem";
-    return `calc(env(safe-area-inset-bottom) + ${shouldShowMobileBottomControls ? 156 : 76}px)`;
+    return `calc(env(safe-area-inset-bottom) + ${shouldShowMobileBottomControls ? 252 : 96}px)`;
   }, [isMdUp, shouldShowMobileBottomControls]);
   const mobileFabBottom = useMemo(() => {
     if (isMdUp) return "1.5rem";
@@ -3953,7 +3953,7 @@ export default function Home() {
                           </span>
                         </button>
                         {accountMenuOpen ? (
-                          <div className="absolute right-0 top-12 w-48 overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
+                          <div className="absolute right-0 top-12 z-[1500] w-48 overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
                             <div className="border-b border-slate-100 px-4 py-3">
                               <div className="text-xs font-black text-slate-900">{currentUserLabel}</div>
                               <div className="mt-1 truncate text-[11px] font-semibold text-slate-500">
