@@ -2748,7 +2748,7 @@ export default function Home() {
   }, [isMdUp]);
   const mobileLegendBottom = useMemo(() => {
     if (isMdUp) return "1.5rem";
-    return `calc(env(safe-area-inset-bottom) + ${shouldShowMobileBottomControls ? 252 : 96}px)`;
+    return `calc(env(safe-area-inset-bottom) + ${shouldShowMobileBottomControls ? 292 : 136}px)`;
   }, [isMdUp, shouldShowMobileBottomControls]);
   const mobileFabBottom = useMemo(() => {
     if (isMdUp) return "1.5rem";
