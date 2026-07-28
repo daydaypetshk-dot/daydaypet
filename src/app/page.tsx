@@ -3182,7 +3182,7 @@ export default function Home() {
     <div suppressHydrationWarning={true} className="relative h-[100svh] w-full overflow-hidden bg-black">
       <AppToast message={toastMessage} tone={toastTone} onClose={() => setToastMessage(null)} />
 
-      <div className="pointer-events-none fixed inset-x-0 top-0 z-[1400] border-b border-gray-200 bg-white shadow-sm">
+      <div className="pointer-events-none fixed inset-x-0 top-0 z-[1400] border-b border-gray-200 bg-white shadow-sm pt-[env(safe-area-inset-top)] md:pt-0">
         <div ref={mobileHeaderRef} className="pointer-events-auto">
           <div className="px-4 py-3 md:px-6">
             <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center md:gap-4">
@@ -3310,131 +3310,134 @@ export default function Home() {
               </div>
             </div>
           </div>
+        </div>
+      </div>
 
-          <div className="border-t border-gray-100 bg-white px-3 py-2 md:px-4">
-            <div className="space-y-2">
-              {notificationPermissionState === "denied" ? (
-                <button
-                  type="button"
-                  onClick={openNotificationHelpModal}
-                  className="w-full rounded-2xl bg-black/80 px-3 py-2.5 text-left text-xs font-black text-white shadow-xl ring-1 ring-white/10 backdrop-blur md:px-4 md:py-3 md:text-sm"
-                >
-                  🐾 哎呀，您的瀏覽器關閉了通知權限！點擊此處查看 3 秒開啟教學 ➔
-                </button>
+      <div
+        className="pointer-events-none fixed inset-x-0 z-[1300] px-3 md:px-4"
+        style={{ top: `${Math.max(mobileHeaderHeight + 8, 72)}px` }}
+      >
+        <div className="pointer-events-auto space-y-2">
+          {notificationPermissionState === "denied" ? (
+            <button
+              type="button"
+              onClick={openNotificationHelpModal}
+              className="w-full rounded-2xl bg-black/80 px-3 py-2.5 text-left text-xs font-black text-white shadow-xl ring-1 ring-white/10 backdrop-blur md:px-4 md:py-3 md:text-sm"
+            >
+              🐾 哎呀，您的瀏覽器關閉了通知權限！點擊此處查看 3 秒開啟教學 ➔
+            </button>
+          ) : null}
+
+          {mode === "life" ? (
+            <>
+              <div className="flex flex-wrap gap-2 md:pl-14">
+                {guideCategories.map((category) => (
+                  <button
+                    key={category.id}
+                    type="button"
+                    onClick={() => setLifeGuideCategory(category.name)}
+                    className={[
+                      "rounded-full px-3 py-2 text-sm font-extrabold text-white shadow-lg",
+                      "ring-1 ring-black/10 transition",
+                      lifeGuideCategory === category.name
+                        ? "bg-orange-600"
+                        : "bg-orange-500/90 opacity-80 hover:opacity-100",
+                    ].join(" ")}
+                  >
+                    {category.icon} {category.name}
+                  </button>
+                ))}
+              </div>
+
+              {isLoadingGuideCategories && guideCategories.length === 0 ? (
+                <div className="rounded-2xl bg-white/90 px-3 py-2 text-xs font-black text-slate-700 shadow-lg ring-1 ring-black/10 backdrop-blur">
+                  正在載入指南分類…
+                </div>
+              ) : filteredGuideSubcategories.length > 0 ? (
+                <div className="mt-2 flex w-full flex-wrap gap-2 md:pl-14">
+                  <button
+                    type="button"
+                    onClick={() => setLifeGuideSubcategory("all")}
+                    className={[
+                      "rounded-full px-3 py-2 text-xs font-black shadow-lg ring-1 transition",
+                      lifeGuideSubcategory === "all"
+                        ? "bg-white text-orange-700 ring-orange-200"
+                        : "bg-white/90 text-slate-700 ring-black/10 hover:bg-white",
+                    ].join(" ")}
+                  >
+                    全部
+                  </button>
+                  {filteredGuideSubcategories.map((subcategory) => (
+                    <button
+                      key={subcategory.id}
+                      type="button"
+                      onClick={() => setLifeGuideSubcategory(subcategory.name)}
+                      className={[
+                        "rounded-full px-3 py-2 text-xs font-black shadow-lg ring-1 transition",
+                        lifeGuideSubcategory === subcategory.name
+                          ? "bg-white text-orange-700 ring-orange-200"
+                          : "bg-white/90 text-slate-700 ring-black/10 hover:bg-white",
+                      ].join(" ")}
+                    >
+                      {subcategory.name}
+                    </button>
+                  ))}
+                </div>
+              ) : guideCategories.length === 0 ? (
+                <div className="rounded-2xl bg-white/90 px-3 py-2 text-xs font-black text-slate-700 shadow-lg ring-1 ring-black/10 backdrop-blur">
+                  暫時未有指南分類，請先到後台新增。
+                </div>
               ) : null}
+            </>
+          ) : (
+            <>
+              <div className="scrollbar-none flex w-full flex-nowrap gap-2 overflow-x-auto whitespace-nowrap pb-1 md:pl-14">
+                <SosSpeciesFilterButton
+                  label="全部"
+                  active={sosSpeciesFilter === "all"}
+                  onClick={() => setSosSpeciesFilter("all")}
+                />
+                <SosSpeciesFilterButton
+                  label="🐱 貓貓"
+                  active={sosSpeciesFilter === "cat"}
+                  onClick={() => setSosSpeciesFilter("cat")}
+                />
+                <SosSpeciesFilterButton
+                  label="🐶 狗狗"
+                  active={sosSpeciesFilter === "dog"}
+                  onClick={() => setSosSpeciesFilter("dog")}
+                />
+                <SosSpeciesFilterButton
+                  label="🦜 鸚鵡/雀鳥"
+                  active={sosSpeciesFilter === "bird"}
+                  onClick={() => setSosSpeciesFilter("bird")}
+                />
+                <SosSpeciesFilterButton
+                  label="🐹 其他"
+                  active={sosSpeciesFilter === "other"}
+                  onClick={() => setSosSpeciesFilter("other")}
+                />
+              </div>
 
-              {mode === "life" ? (
-                <>
-                  <div className="flex flex-wrap gap-2 md:pl-14">
-                    {guideCategories.map((category) => (
-                      <button
-                        key={category.id}
-                        type="button"
-                        onClick={() => setLifeGuideCategory(category.name)}
-                        className={[
-                          "rounded-full px-3 py-2 text-sm font-extrabold text-white shadow-lg",
-                          "ring-1 ring-black/10 transition",
-                          lifeGuideCategory === category.name
-                            ? "bg-orange-600"
-                            : "bg-orange-500/90 opacity-80 hover:opacity-100",
-                        ].join(" ")}
-                      >
-                        {category.icon} {category.name}
-                      </button>
-                    ))}
-                  </div>
-
-                  {isLoadingGuideCategories && guideCategories.length === 0 ? (
-                    <div className="rounded-2xl bg-white px-3 py-2 text-xs font-black text-slate-700 ring-1 ring-black/10">
-                      正在載入指南分類…
-                    </div>
-                  ) : filteredGuideSubcategories.length > 0 ? (
-                    <div className="mt-2 flex w-full flex-wrap gap-2 md:pl-14">
-                      <button
-                        type="button"
-                        onClick={() => setLifeGuideSubcategory("all")}
-                        className={[
-                          "rounded-full px-3 py-2 text-xs font-black shadow-lg ring-1 transition",
-                          lifeGuideSubcategory === "all"
-                            ? "bg-white text-orange-700 ring-orange-200"
-                            : "bg-white text-slate-700 ring-black/10 hover:bg-slate-50",
-                        ].join(" ")}
-                      >
-                        全部
-                      </button>
-                      {filteredGuideSubcategories.map((subcategory) => (
-                        <button
-                          key={subcategory.id}
-                          type="button"
-                          onClick={() => setLifeGuideSubcategory(subcategory.name)}
-                          className={[
-                            "rounded-full px-3 py-2 text-xs font-black shadow-lg ring-1 transition",
-                            lifeGuideSubcategory === subcategory.name
-                              ? "bg-white text-orange-700 ring-orange-200"
-                              : "bg-white text-slate-700 ring-black/10 hover:bg-slate-50",
-                          ].join(" ")}
-                        >
-                          {subcategory.name}
-                        </button>
-                      ))}
-                    </div>
-                  ) : guideCategories.length === 0 ? (
-                    <div className="rounded-2xl bg-white px-3 py-2 text-xs font-black text-slate-700 ring-1 ring-black/10">
-                      暫時未有指南分類，請先到後台新增。
-                    </div>
-                  ) : null}
-                </>
-              ) : (
-                <>
-                  <div className="scrollbar-none flex w-full flex-nowrap gap-2 overflow-x-auto whitespace-nowrap pb-1 md:pl-14">
-                    <SosSpeciesFilterButton
-                      label="全部"
-                      active={sosSpeciesFilter === "all"}
-                      onClick={() => setSosSpeciesFilter("all")}
+              {mode === "sos" && (sosSpeciesFilter === "cat" || sosSpeciesFilter === "dog" || sosSpeciesFilter === "bird") ? (
+                <div className="mt-2 flex w-full flex-wrap gap-2 md:pl-14">
+                  <SosBreedFilterChip
+                    label="全部"
+                    active={sosBreedFilter === "all"}
+                    onClick={() => setSosBreedFilter("all")}
+                  />
+                  {filteredSosBreedOptions.map((item) => (
+                    <SosBreedFilterChip
+                      key={item.id}
+                      label={item.breed_name}
+                      active={sosBreedFilter === item.breed_name}
+                      onClick={() => setSosBreedFilter(item.breed_name)}
                     />
-                    <SosSpeciesFilterButton
-                      label="🐱 貓貓"
-                      active={sosSpeciesFilter === "cat"}
-                      onClick={() => setSosSpeciesFilter("cat")}
-                    />
-                    <SosSpeciesFilterButton
-                      label="🐶 狗狗"
-                      active={sosSpeciesFilter === "dog"}
-                      onClick={() => setSosSpeciesFilter("dog")}
-                    />
-                    <SosSpeciesFilterButton
-                      label="🦜 鸚鵡/雀鳥"
-                      active={sosSpeciesFilter === "bird"}
-                      onClick={() => setSosSpeciesFilter("bird")}
-                    />
-                    <SosSpeciesFilterButton
-                      label="🐹 其他"
-                      active={sosSpeciesFilter === "other"}
-                      onClick={() => setSosSpeciesFilter("other")}
-                    />
-                  </div>
-
-                  {mode === "sos" && (sosSpeciesFilter === "cat" || sosSpeciesFilter === "dog" || sosSpeciesFilter === "bird") ? (
-                    <div className="mt-2 flex w-full flex-wrap gap-2 md:pl-14">
-                      <SosBreedFilterChip
-                        label="全部"
-                        active={sosBreedFilter === "all"}
-                        onClick={() => setSosBreedFilter("all")}
-                      />
-                      {filteredSosBreedOptions.map((item) => (
-                        <SosBreedFilterChip
-                          key={item.id}
-                          label={item.breed_name}
-                          active={sosBreedFilter === item.breed_name}
-                          onClick={() => setSosBreedFilter(item.breed_name)}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-                </>
-              )}
-            </div>
-          </div>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          )}
         </div>
       </div>
 
