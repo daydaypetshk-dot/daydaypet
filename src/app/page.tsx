@@ -2744,13 +2744,16 @@ export default function Home() {
     return `calc(env(safe-area-inset-top) + ${Math.max(mobileHeaderHeight + 12, 88)}px)`;
   }, [isMdUp, mobileHeaderHeight]);
   const topOverlayLeft = useMemo(() => {
-    if (isMdUp) return isListCollapsed ? 64 : 340;
-    return 56;
+    if (!isMdUp) return 0;
+    return isListCollapsed ? 64 : 340;
   }, [isListCollapsed, isMdUp]);
-  const topBannerTop = useMemo(() => Math.max(mobileHeaderHeight + 8, 72), [mobileHeaderHeight]);
+  const topBannerTop = useMemo(
+    () => Math.max(mobileHeaderHeight + 8, isMdUp ? 72 : 64),
+    [isMdUp, mobileHeaderHeight],
+  );
   const topFiltersTop = useMemo(() => {
-    const base = Math.max(mobileHeaderHeight + 8, 72);
-    const bannerOffset = notificationPermissionState === "denied" ? (isMdUp ? 56 : 52) : 0;
+    const base = Math.max(mobileHeaderHeight + 8, isMdUp ? 72 : 64);
+    const bannerOffset = notificationPermissionState === "denied" ? (isMdUp ? 56 : 40) : 0;
     return base + bannerOffset;
   }, [isMdUp, mobileHeaderHeight, notificationPermissionState]);
   const contentTopOffset = useMemo(() => {
@@ -3199,8 +3202,122 @@ export default function Home() {
 
       <div className="pointer-events-none fixed inset-x-0 top-0 z-[1400] border-b border-gray-200 bg-white shadow-sm pt-[env(safe-area-inset-top)] md:pt-0">
         <div ref={mobileHeaderRef} className="pointer-events-auto">
-          <div className="px-4 py-3 md:px-6">
-            <div className="flex flex-col gap-3 md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center md:gap-4">
+          <div className="px-3 md:px-6 md:py-3">
+            <div className="flex h-14 items-center gap-2 md:hidden">
+              <div className="flex items-center gap-2">
+                <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+                  <span className="absolute inset-0 flex items-center justify-center text-sm font-black text-slate-700">日</span>
+                  <img
+                    src="/logo.png"
+                    alt="日日寵 Logo"
+                    className="relative z-10 h-full w-full object-contain"
+                    loading="eager"
+                    onError={(event) => {
+                      event.currentTarget.style.display = "none";
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex-1">
+                <div className={["grid rounded-xl bg-slate-100 p-1", SOS_ENABLED ? "grid-cols-2" : "grid-cols-1"].join(" ")}>
+                  <button
+                    type="button"
+                    onClick={() => setMode("sos")}
+                    className={[
+                      "rounded-lg px-3 py-2 text-center text-xs font-black transition",
+                      mode === "sos" ? "bg-red-600 text-white shadow" : "bg-transparent text-slate-700 hover:bg-white/80",
+                    ].join(" ")}
+                  >
+                    SOS
+                  </button>
+                  {SOS_ENABLED ? (
+                    <button
+                      type="button"
+                      onClick={() => setMode("life")}
+                      className={[
+                        "rounded-lg px-3 py-2 text-center text-xs font-black transition",
+                        mode === "life" ? "bg-emerald-600 text-white shadow" : "bg-transparent text-slate-700 hover:bg-white/80",
+                      ].join(" ")}
+                    >
+                      指南
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNotificationPanelOpen((p) => !p);
+                    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+                    if (isLoggedIn) {
+                      void fetchAppNotifications();
+                    }
+                  }}
+                  className="relative inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200/80"
+                >
+                  <span className="text-base">🔔</span>
+                  {unreadCount > 0 ? (
+                    <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-black text-white">
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  ) : null}
+                </button>
+
+                {!isLoggedIn ? (
+                  <button
+                    type="button"
+                    onClick={() => setAuthModalOpen(true)}
+                    className="h-10 w-10 rounded-2xl bg-slate-900 text-xs font-black text-white shadow-sm ring-1 ring-slate-900/10"
+                    aria-label="登入或註冊"
+                  >
+                    <span>👤</span>
+                  </button>
+                ) : (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setAccountMenuOpen((prev) => !prev)}
+                      className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-sm font-black text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200/80"
+                    >
+                      {currentUserAvatar ? (
+                        <img
+                          src={currentUserAvatar}
+                          alt={currentUserLabel}
+                          className="h-8 w-8 rounded-full object-cover ring-2 ring-white"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-xs font-black text-slate-700">
+                          {currentUserLabel.slice(0, 1).toUpperCase()}
+                        </div>
+                      )}
+                    </button>
+                    {accountMenuOpen ? (
+                      <div className="absolute right-0 top-12 z-[1500] w-48 overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
+                        <div className="border-b border-slate-100 px-4 py-3">
+                          <div className="text-xs font-black text-slate-900">{currentUserLabel}</div>
+                          <div className="mt-1 truncate text-[11px] font-semibold text-slate-500">
+                            {currentUser?.email || "已登入會員"}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => void handleSignOut()}
+                          className="w-full px-4 py-3 text-left text-sm font-black text-slate-900 hover:bg-slate-50"
+                        >
+                          🚪 登出帳號
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="hidden md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center md:gap-4">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
                   <span className="absolute inset-0 flex items-center justify-center text-sm font-black text-slate-700">日</span>
@@ -3215,11 +3332,11 @@ export default function Home() {
                   />
                 </div>
                 <div className="min-w-0">
-                  <div className="truncate text-base font-black tracking-tight text-slate-900 md:text-lg">日日寵 DayDayPet</div>
+                  <div className="truncate text-lg font-black tracking-tight text-slate-900">日日寵 DayDayPet</div>
                 </div>
               </div>
 
-              <div className="order-3 md:order-2">
+              <div>
                 <div className={["grid rounded-2xl bg-slate-100 p-1", SOS_ENABLED ? "grid-cols-2" : "grid-cols-1"].join(" ")}>
                   <button
                     type="button"
@@ -3246,7 +3363,7 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="order-2 flex items-center justify-end gap-2 md:order-3">
+              <div className="flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -3256,13 +3373,10 @@ export default function Home() {
                       void fetchAppNotifications();
                     }
                   }}
-                  className="relative inline-flex max-w-[170px] items-center gap-2 rounded-2xl bg-slate-100 px-3 py-2.5 text-left text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200/80 md:max-w-[250px]"
+                  className="relative inline-flex max-w-[250px] items-center gap-2 rounded-2xl bg-slate-100 px-3 py-2.5 text-left text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200/80"
                 >
                   <span className="text-base">🔔</span>
-                  <span className="truncate text-xs font-black">
-                    <span className="md:hidden">接收通知</span>
-                    <span className="hidden md:inline">{navbarNotificationControlLabel}</span>
-                  </span>
+                  <span className="truncate text-xs font-black">{navbarNotificationControlLabel}</span>
                   {unreadCount > 0 ? (
                     <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-black text-white">
                       {unreadCount > 99 ? "99+" : unreadCount}
@@ -3274,11 +3388,10 @@ export default function Home() {
                   <button
                     type="button"
                     onClick={() => setAuthModalOpen(true)}
-                    className="rounded-2xl bg-slate-900 px-3 py-2.5 text-xs font-black text-white shadow-sm ring-1 ring-slate-900/10 md:text-sm"
+                    className="rounded-2xl bg-slate-900 px-3 py-2.5 text-sm font-black text-white shadow-sm ring-1 ring-slate-900/10"
                     aria-label="登入或註冊"
                   >
-                    <span className="md:hidden">👤</span>
-                    <span className="hidden md:inline">👤 帳號</span>
+                    👤 帳號
                   </button>
                 ) : (
                   <div className="relative">
@@ -3299,9 +3412,7 @@ export default function Home() {
                           {currentUserLabel.slice(0, 1).toUpperCase()}
                         </div>
                       )}
-                      <span className="hidden max-w-[96px] truncate text-xs font-black text-slate-800 sm:inline">
-                        {currentUserLabel}
-                      </span>
+                      <span className="max-w-[96px] truncate text-xs font-black text-slate-800">{currentUserLabel}</span>
                     </button>
                     {accountMenuOpen ? (
                       <div className="absolute right-0 top-12 z-[1500] w-48 overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
@@ -3337,9 +3448,12 @@ export default function Home() {
             <button
               type="button"
               onClick={openNotificationHelpModal}
-              className="pointer-events-auto inline-flex max-w-[min(92vw,520px)] items-center rounded-full bg-black/85 px-4 py-2 text-left text-xs font-black text-white shadow-xl ring-1 ring-black/20 backdrop-blur md:px-4 md:py-2.5 md:text-sm"
+              className="pointer-events-auto inline-flex max-w-[min(92vw,560px)] items-center rounded-full bg-black/85 px-2.5 py-1.5 text-left text-[11px] font-black text-white shadow-xl ring-1 ring-black/20 backdrop-blur md:px-4 md:py-2.5 md:text-sm"
             >
-              🐾 哎呀，您的瀏覽器關閉了通知權限！點擊此處查看 3 秒開啟教學 ➔
+              <span className="w-full truncate">
+                <span className="md:hidden">🐾 通知權限已關閉，點擊查看教學 ➔</span>
+                <span className="hidden md:inline">🐾 哎呀，您的瀏覽器關閉了通知權限！點擊此處查看 3 秒開啟教學 ➔</span>
+              </span>
             </button>
           </div>
         </div>
