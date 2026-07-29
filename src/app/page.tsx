@@ -2750,16 +2750,16 @@ export default function Home() {
     return isListCollapsed ? 64 : 340;
   }, [isListCollapsed, isMdUp]);
   const topBannerTop = useMemo(
-    () => Math.max(mobileHeaderHeight + 8, isMdUp ? 112 : 60),
+    () => Math.max(mobileHeaderHeight + 8, isMdUp ? 112 : 72),
     [isMdUp, mobileHeaderHeight],
   );
   const topFiltersTop = useMemo(() => {
-    const base = Math.max(mobileHeaderHeight + 8, isMdUp ? 112 : 60);
+    const base = Math.max(mobileHeaderHeight + 8, isMdUp ? 112 : 72);
     const bannerOffset = notificationPermissionState === "denied" ? (isMdUp ? 56 : 40) : 0;
     return base + bannerOffset;
   }, [isMdUp, mobileHeaderHeight, notificationPermissionState]);
   const contentTopOffset = useMemo(() => {
-    const headerOffset = Math.max(mobileHeaderHeight, isMdUp ? 112 : 60);
+    const headerOffset = Math.max(mobileHeaderHeight, isMdUp ? 112 : 72);
     return `${headerOffset}px`;
   }, [isMdUp, mobileHeaderHeight]);
   const mobileMapInsetsStyle = useMemo<CSSProperties | undefined>(() => {
@@ -3204,13 +3204,13 @@ export default function Home() {
 
       <div className="pointer-events-none fixed inset-x-0 top-0 z-[1400] border-b border-gray-100 bg-white pt-[env(safe-area-inset-top)] md:pt-0">
         <div ref={mobileHeaderRef} className="pointer-events-auto">
-          <div className="w-full bg-white border-b border-gray-100 flex items-center justify-between px-3 md:px-6 h-[60px] md:h-28 relative">
+          <div className="w-full bg-white border-b border-gray-100 flex items-center justify-between px-3 md:px-6 h-[72px] md:h-28 relative">
             <div className="flex items-center justify-start p-0 my-0">
               <div className="relative flex shrink-0 items-center justify-center overflow-visible p-0 my-0">
                 <img
                   src={effectiveLogoUrl}
                   alt="日日寵"
-                  className="h-10 w-auto object-contain max-w-none md:h-24 md:max-w-none"
+                  className="h-[52px] sm:h-14 w-auto object-contain max-w-none md:h-28 md:max-w-none"
                   loading="eager"
                   onError={(event) => {
                     event.currentTarget.style.display = "none";

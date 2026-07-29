@@ -3094,15 +3094,15 @@ export default function AdminDashboardPage() {
                 <div className="flex w-[440px] flex-col gap-5 rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200">
                   <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
                     <div className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      手機 Header · 單行精簡（h-[60px]｜左 Logo h-10 · 右 SOS 精簡 + 指南 精簡 + 通知 + 頭像）
+                      手機 Header · 單行精簡（h-[72px]｜左 Logo h-[52px]/sm:h-14 放大 · 右 SOS + 指南 + 通知 + 頭像）
                     </div>
-                    <div className="w-full bg-white border-b border-gray-100 flex items-center justify-between px-3 h-[60px] relative">
+                    <div className="w-full bg-white border-b border-gray-100 flex items-center justify-between px-3 h-[72px] relative">
                       <div className="flex items-center justify-start p-0 my-0">
                         <div className="relative flex shrink-0 items-center justify-center overflow-visible p-0 my-0">
                           <img
                             src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
                             alt="日日寵"
-                            className="h-10 w-auto object-contain max-w-none"
+                            className="h-[52px] sm:h-14 w-auto object-contain max-w-none"
                             onError={(event) => {
                               event.currentTarget.style.display = "none";
                             }}
@@ -3127,7 +3127,7 @@ export default function AdminDashboardPage() {
 
                   <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
                     <div className="px-6 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      桌面 Header · 單列三欄（h-28｜左 Logo md:h-24 大氣 · 中 SOS+指南絕對居中 · 右 功能）
+                      桌面 Header · 單列三欄（h-28｜左 Logo md:h-28 貼滿 · 中 SOS+指南絕對居中 · 右 功能）
                     </div>
                     <div className="w-full bg-white border-b border-gray-100 flex items-center justify-between md:px-6 relative md:h-28">
                       <div className="flex items-center justify-start p-0 my-0">
@@ -3135,7 +3135,7 @@ export default function AdminDashboardPage() {
                           <img
                             src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
                             alt="日日寵"
-                            className="md:h-24 w-auto object-contain max-w-none md:max-w-none"
+                            className="md:h-28 w-auto object-contain max-w-none md:max-w-none"
                             onError={(event) => {
                               event.currentTarget.style.display = "none";
                             }}
@@ -3158,8 +3158,8 @@ export default function AdminDashboardPage() {
 
                   <div className="text-[11px] font-semibold text-slate-500">
                     {(logoPreviewUrl || systemSettings.site_logo_url)
-                      ? "手機：單行 h-[60px] 精簡（SOS 短稱 + 指南短稱 + 通知 + 頭像，單行緊湊）｜桌面：h-28 大 Logo md:h-24 + SOS/指南 absolute 正中"
-                      : "手機：單行 h-[60px] 精簡（SOS 短稱 + 指南短稱 + 通知 + 頭像，單行緊湊）｜桌面：h-28 大 Logo md:h-24 + SOS/指南 absolute 正中"}
+                      ? "手機：h-[72px] + Logo h-[52px]/sm:h-14 放大（SOS+指南+通知+頭像單行緊湊）｜桌面：h-28 + md:h-28 Logo 貼滿 + SOS/指南 absolute 正中"
+                      : "手機：h-[72px] + Logo h-[52px]/sm:h-14 放大（SOS+指南+通知+頭像單行緊湊）｜桌面：h-28 + md:h-28 Logo 貼滿 + SOS/指南 absolute 正中"}
                   </div>
                 </div>
               </div>
