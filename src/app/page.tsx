@@ -3206,16 +3206,22 @@ export default function Home() {
         <div ref={mobileHeaderRef} className="pointer-events-auto">
           <div className="px-3 md:px-6 py-1 md:py-2">
             <div className="flex min-h-[72px] items-center gap-2 md:hidden">
-              <div className="flex items-center gap-2">
-                <div className="relative flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-1.5">
-                  <span className="absolute inset-0 flex items-center justify-center text-base font-black text-slate-700">日</span>
+              <div className="flex items-center">
+                <div className="relative flex shrink-0 items-center justify-center rounded-xl border-0 bg-transparent px-2 py-1">
+                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xl font-black text-slate-700 opacity-0">日</span>
                   <img
                     src={effectiveLogoUrl}
-                    alt="日日寵 Logo"
-                    className="relative z-10 h-12 w-auto object-contain max-w-none bg-white"
+                    alt="日日寵"
+                    className="relative z-10 h-12 w-auto object-contain max-w-none"
                     loading="eager"
                     onError={(event) => {
                       event.currentTarget.style.display = "none";
+                      const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
+                      if (fallback) fallback.style.opacity = "1";
+                    }}
+                    onLoad={(event) => {
+                      const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
+                      if (fallback) fallback.style.opacity = "0";
                     }}
                   />
                 </div>
@@ -3320,21 +3326,24 @@ export default function Home() {
             </div>
 
             <div className="hidden min-h-[72px] items-center md:grid md:min-h-[80px] md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center md:gap-4">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="relative flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2">
-                  <span className="absolute inset-0 flex items-center justify-center text-lg font-black text-slate-700">日</span>
+              <div className="flex min-w-0 items-center">
+                <div className="relative flex shrink-0 items-center justify-center rounded-xl border-0 bg-transparent px-2 py-1">
+                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-2xl font-black text-slate-700 opacity-0">日</span>
                   <img
                     src={effectiveLogoUrl}
-                    alt="日日寵 Logo"
-                    className="relative z-10 h-16 w-auto object-contain max-w-none bg-white md:h-[72px]"
+                    alt="日日寵"
+                    className="relative z-10 h-16 w-auto object-contain max-w-none md:h-20"
                     loading="eager"
                     onError={(event) => {
                       event.currentTarget.style.display = "none";
+                      const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
+                      if (fallback) fallback.style.opacity = "1";
+                    }}
+                    onLoad={(event) => {
+                      const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
+                      if (fallback) fallback.style.opacity = "0";
                     }}
                   />
-                </div>
-                <div className="min-w-0">
-                  <div className="truncate text-lg font-black tracking-tight text-slate-900">日日寵 DayDayPet</div>
                 </div>
               </div>
 

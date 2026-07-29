@@ -3091,49 +3091,45 @@ export default function AdminDashboardPage() {
 
               <div>
                 <div className="mb-2 text-sm font-bold text-slate-700">即時預覽（Live Preview）</div>
-                <div className="flex w-[300px] flex-col gap-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
-                  <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
-                    <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      手機 Header (h-12 = 48px)
+                <div className="flex w-[320px] flex-col gap-4 rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200">
+                  <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-200">
+                    <div className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      手機 Header（h-12 = 48px，純 Logo）
                     </div>
-                    <div className="flex items-center gap-2">
-                      <div className="relative flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-1.5">
-                        <span className="absolute inset-0 flex items-center justify-center text-base font-black text-slate-700">
-                          日
-                        </span>
+                    <div className="flex min-h-[72px] items-center">
+                      <div className="relative flex shrink-0 items-center justify-center rounded-xl border-0 bg-transparent px-2 py-1">
+                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xl font-black text-slate-700 opacity-0">日</span>
                         <img
                           src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
-                          alt="Logo Preview"
-                          className="relative z-10 h-12 w-auto object-contain max-w-none bg-white"
+                          alt="日日寵"
+                          className="relative z-10 h-12 w-auto object-contain max-w-none"
                           onError={(event) => {
                             event.currentTarget.style.display = "none";
+                            const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
+                            if (fallback) fallback.style.opacity = "1";
                           }}
                         />
                       </div>
-                      <div className="flex-1 truncate text-sm font-black text-slate-900">日日寵</div>
                     </div>
                   </div>
 
-                  <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
-                    <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      桌面 Header (md:h-18 = 72px)
+                  <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-200">
+                    <div className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      桌面 Header（md:h-20 = 80px，純 Logo）
                     </div>
-                    <div className="flex items-center gap-3">
-                      <div className="relative flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2">
-                        <span className="absolute inset-0 flex items-center justify-center text-lg font-black text-slate-700">
-                          日
-                        </span>
+                    <div className="flex min-h-[80px] items-center">
+                      <div className="relative flex shrink-0 items-center justify-center rounded-xl border-0 bg-transparent px-2 py-1">
+                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-2xl font-black text-slate-700 opacity-0">日</span>
                         <img
                           src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
-                          alt="Logo Preview"
-                          className="relative z-10 h-16 w-auto object-contain max-w-none bg-white md:h-[72px]"
+                          alt="日日寵"
+                          className="relative z-10 h-16 w-auto object-contain max-w-none md:h-20"
                           onError={(event) => {
                             event.currentTarget.style.display = "none";
+                            const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
+                            if (fallback) fallback.style.opacity = "1";
                           }}
                         />
-                      </div>
-                      <div className="truncate text-lg font-black tracking-tight text-slate-900">
-                        日日寵 DayDayPet
                       </div>
                     </div>
                   </div>
