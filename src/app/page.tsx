@@ -2750,18 +2750,18 @@ export default function Home() {
     return isListCollapsed ? 64 : 340;
   }, [isListCollapsed, isMdUp]);
   const topBannerTop = useMemo(
-    () => Math.max(mobileHeaderHeight + 8, isMdUp ? 72 : 64),
+    () => Math.max(mobileHeaderHeight + 8, isMdUp ? 96 : 88),
     [isMdUp, mobileHeaderHeight],
   );
   const topFiltersTop = useMemo(() => {
-    const base = Math.max(mobileHeaderHeight + 8, isMdUp ? 72 : 64);
+    const base = Math.max(mobileHeaderHeight + 8, isMdUp ? 96 : 88);
     const bannerOffset = notificationPermissionState === "denied" ? (isMdUp ? 56 : 40) : 0;
     return base + bannerOffset;
   }, [isMdUp, mobileHeaderHeight, notificationPermissionState]);
   const contentTopOffset = useMemo(() => {
-    const headerOffset = Math.max(mobileHeaderHeight, 64);
+    const headerOffset = Math.max(mobileHeaderHeight, isMdUp ? 96 : 88);
     return `${headerOffset}px`;
-  }, [mobileHeaderHeight]);
+  }, [isMdUp, mobileHeaderHeight]);
   const mobileMapInsetsStyle = useMemo<CSSProperties | undefined>(() => {
     if (isMdUp) return undefined;
     return undefined;
@@ -3204,29 +3204,22 @@ export default function Home() {
 
       <div className="pointer-events-none fixed inset-x-0 top-0 z-[1400] border-b border-gray-100 bg-white pt-[env(safe-area-inset-top)] md:pt-0">
         <div ref={mobileHeaderRef} className="pointer-events-auto">
-          <div className="flex h-[72px] items-center justify-between px-4 md:h-[80px] md:px-6 min-h-[72px] md:min-h-[80px]">
-            <div className="flex items-center justify-start">
-              <div className="relative flex shrink-0 items-center justify-center overflow-visible">
-                <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-2xl font-black text-slate-700 opacity-0">日</span>
+          <div className="relative flex h-[88px] items-center justify-between px-4 md:h-[96px] md:px-6 min-h-[88px] md:min-h-[96px]">
+            <div className="flex items-center justify-start p-0 my-0">
+              <div className="relative flex shrink-0 items-center justify-center overflow-visible p-0 my-0">
                 <img
                   src={effectiveLogoUrl}
                   alt="日日寵"
-                  className="relative z-10 h-14 w-auto object-contain max-w-none md:h-16"
+                  className="h-[80px] w-auto object-contain max-w-none md:h-[88px]"
                   loading="eager"
                   onError={(event) => {
                     event.currentTarget.style.display = "none";
-                    const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
-                    if (fallback) fallback.style.opacity = "1";
-                  }}
-                  onLoad={(event) => {
-                    const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
-                    if (fallback) fallback.style.opacity = "0";
                   }}
                 />
               </div>
             </div>
 
-            <div className="hidden flex-1 md:flex md:items-center md:justify-center md:gap-3">
+            <div className="hidden md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 md:z-10 md:flex md:items-center md:justify-center md:gap-3">
               <div className={["grid rounded-2xl bg-slate-100 p-1", SOS_ENABLED ? "grid-cols-2" : "grid-cols-1"].join(" ")}>
                 <button
                   type="button"
@@ -3253,7 +3246,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="md:hidden">
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 md:hidden">
               <div className={["grid rounded-xl bg-slate-100 p-1", SOS_ENABLED ? "grid-cols-2" : "grid-cols-1"].join(" ")}>
                 <button
                   type="button"
