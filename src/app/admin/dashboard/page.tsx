@@ -3094,15 +3094,15 @@ export default function AdminDashboardPage() {
                 <div className="flex w-[440px] flex-col gap-5 rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200">
                   <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
                     <div className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      手機 Header · 單層三欄（h-[96px]｜左 Logo h-[80px] 貼滿 · 中 SOS+指南絕對居中 · 右 功能）
+                      手機 Header · 單層三欄（h-[112px]｜左 Logo h-[96px] 貼滿 · 中 SOS+指南絕對居中 · 右 功能）
                     </div>
-                    <div className="relative flex h-[96px] items-center justify-between px-4 min-h-[96px] border-b border-gray-100">
+                    <div className="relative flex h-[112px] items-center justify-between px-4 min-h-[112px] border-b border-gray-100">
                       <div className="flex items-center justify-start p-0 my-0">
                         <div className="relative flex shrink-0 items-center justify-center overflow-visible p-0 my-0">
                           <img
                             src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
                             alt="日日寵"
-                            className="h-[80px] w-auto object-contain max-w-none"
+                            className="h-[96px] w-auto object-contain max-w-none"
                             onError={(event) => {
                               event.currentTarget.style.display = "none";
                             }}
@@ -3125,15 +3125,15 @@ export default function AdminDashboardPage() {
 
                   <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
                     <div className="px-6 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      桌面 Header · 單層三欄（h-[112px]｜左 Logo md:h-[96px] 貼滿 · 中 SOS+指南大按鈕絕對居中 · 右 功能）
+                      桌面 Header · 單層三欄（h-[128px]｜左 Logo md:h-[112px] 貼滿 · 中 SOS+指南大按鈕絕對居中 · 右 功能）
                     </div>
-                    <div className="relative flex h-[112px] items-center justify-between px-6 min-h-[112px] border-b border-gray-100">
+                    <div className="relative flex h-[128px] items-center justify-between px-6 min-h-[128px] border-b border-gray-100">
                       <div className="flex items-center justify-start p-0 my-0">
                         <div className="relative flex shrink-0 items-center justify-center overflow-visible p-0 my-0">
                           <img
                             src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
                             alt="日日寵"
-                            className="h-[80px] w-auto object-contain max-w-none md:h-[96px]"
+                            className="h-[96px] w-auto object-contain max-w-none md:h-[112px]"
                             onError={(event) => {
                               event.currentTarget.style.display = "none";
                             }}
@@ -3156,8 +3156,8 @@ export default function AdminDashboardPage() {
 
                   <div className="text-[11px] font-semibold text-slate-500">
                     {(logoPreviewUrl || systemSettings.site_logo_url)
-                      ? "使用自訂 Logo（尺寸 h-[80px] / md:h-[96px]，96px/112px Header 垂直貼滿極限放大）"
-                      : "使用預設 Logo (/logo.png)（尺寸 h-[80px] / md:h-[96px]，左對齊；中間按鈕絕對居中）"}
+                      ? "使用自訂 Logo（尺寸 h-[96px] / md:h-[112px]，112px/128px Header 垂直貼滿極限放大）"
+                      : "使用預設 Logo (/logo.png)（尺寸 h-[96px] / md:h-[112px]，左對齊；中間按鈕絕對居中）"}
                   </div>
                 </div>
               </div>

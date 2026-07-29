@@ -2750,16 +2750,16 @@ export default function Home() {
     return isListCollapsed ? 64 : 340;
   }, [isListCollapsed, isMdUp]);
   const topBannerTop = useMemo(
-    () => Math.max(mobileHeaderHeight + 8, isMdUp ? 112 : 96),
+    () => Math.max(mobileHeaderHeight + 8, isMdUp ? 128 : 112),
     [isMdUp, mobileHeaderHeight],
   );
   const topFiltersTop = useMemo(() => {
-    const base = Math.max(mobileHeaderHeight + 8, isMdUp ? 112 : 96);
+    const base = Math.max(mobileHeaderHeight + 8, isMdUp ? 128 : 112);
     const bannerOffset = notificationPermissionState === "denied" ? (isMdUp ? 56 : 40) : 0;
     return base + bannerOffset;
   }, [isMdUp, mobileHeaderHeight, notificationPermissionState]);
   const contentTopOffset = useMemo(() => {
-    const headerOffset = Math.max(mobileHeaderHeight, isMdUp ? 112 : 96);
+    const headerOffset = Math.max(mobileHeaderHeight, isMdUp ? 128 : 112);
     return `${headerOffset}px`;
   }, [isMdUp, mobileHeaderHeight]);
   const mobileMapInsetsStyle = useMemo<CSSProperties | undefined>(() => {
@@ -3204,13 +3204,13 @@ export default function Home() {
 
       <div className="pointer-events-none fixed inset-x-0 top-0 z-[1400] border-b border-gray-100 bg-white pt-[env(safe-area-inset-top)] md:pt-0">
         <div ref={mobileHeaderRef} className="pointer-events-auto">
-          <div className="relative flex h-[96px] items-center justify-between px-4 md:h-[112px] md:px-6 min-h-[96px] md:min-h-[112px]">
+          <div className="relative flex h-[112px] items-center justify-between px-4 md:h-[128px] md:px-6 min-h-[112px] md:min-h-[128px]">
             <div className="flex items-center justify-start p-0 my-0">
               <div className="relative flex shrink-0 items-center justify-center overflow-visible p-0 my-0">
                 <img
                   src={effectiveLogoUrl}
                   alt="日日寵"
-                  className="h-[80px] w-auto object-contain max-w-none md:h-[96px]"
+                  className="h-[96px] w-auto object-contain max-w-none md:h-[112px]"
                   loading="eager"
                   onError={(event) => {
                     event.currentTarget.style.display = "none";
