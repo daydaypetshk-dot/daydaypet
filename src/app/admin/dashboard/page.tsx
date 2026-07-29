@@ -368,6 +368,7 @@ export default function AdminDashboardPage() {
 
   const [tab, setTab] = useState<TabKey>("approved");
   const [activeDashboardTab, setActiveDashboardTab] = useState<DashboardViewTab>("board");
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [showManualEntryForm, setShowManualEntryForm] = useState(false);
   const [loadingList, setLoadingList] = useState(false);
   const [boardItems, setBoardItems] = useState<BoardItems>({
@@ -2955,64 +2956,149 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const sidebarNavItems = [
+    { key: "board" as const, label: "🚨 案件審批看板" },
+    { key: "sos-breeds" as const, label: "🐾 SOS品種管理" },
+    { key: "guide-categories" as const, label: "📖 指南分類管理" },
+    { key: "facility-tags" as const, label: "🏷️ 設施標籤管理" },
+    { key: "staged-places" as const, label: "🧾 數據審核控制台" },
+    { key: "scraper-jobs" as const, label: "🕷️ 爬蟲任務執行" },
+    { key: "guide-places" as const, label: "📍 指南地點管理" },
+    { key: "system" as const, label: "⚙️ 系統與通訊設定" },
+  ];
+
   return (
     <div className="min-h-[100svh] bg-slate-50">
       <AppToast message={toastMessage} tone={toastTone} onClose={() => setToastMessage(null)} />
-      <div className="border-b border-slate-200 bg-white">
-        <div className="w-full px-4 py-4">
-          <div className="flex flex-col gap-4">
+
+      <div className="flex min-h-[100svh] w-full">
+        {/* Desktop Sidebar (md+ only) */}
+        <aside className="hidden md:flex md:flex-col md:w-64 md:shrink-0 md:border-r md:border-slate-200 md:bg-white md:min-h-[100svh]">
+          <div className="px-6 py-6 border-b border-slate-200">
             <div className="text-lg font-black text-slate-900">Admin Dashboard</div>
-            <div className="text-xs font-semibold text-slate-500">
+            <div className="mt-1 text-xs font-semibold text-slate-500">
               手動入料 / 審批 / 刪除（RLS + Supabase Auth）
             </div>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { key: "board" as const, label: "🚨 案件審批看板" },
-                { key: "sos-breeds" as const, label: "🐾 SOS品種管理" },
-                { key: "guide-categories" as const, label: "📖 指南分類管理" },
-                { key: "facility-tags" as const, label: "🏷️ 設施標籤管理" },
-                { key: "staged-places" as const, label: "🧾 數據審核控制台" },
-                { key: "scraper-jobs" as const, label: "🕷️ 爬蟲任務執行" },
-                { key: "guide-places" as const, label: "📍 指南地點管理" },
-                { key: "system" as const, label: "⚙️ 系統與通訊設定" },
-              ].map((item) => {
-                const active = activeDashboardTab === item.key;
-                return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => setActiveDashboardTab(item.key)}
-                    className={[
-                      "rounded-2xl px-4 py-3 text-sm font-black transition",
-                      "ring-1 shadow-sm",
-                      active
-                        ? "bg-slate-900 text-white ring-slate-900"
-                        : "bg-white text-slate-700 ring-slate-200 hover:bg-slate-50",
-                    ].join(" ")}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
+          </div>
+          <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
+            {sidebarNavItems.map((item) => {
+              const active = activeDashboardTab === item.key;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setActiveDashboardTab(item.key)}
+                  className={[
+                    "w-full text-left rounded-2xl px-4 py-3 text-sm font-black transition",
+                    active
+                      ? "bg-slate-900 text-white shadow-sm"
+                      : "text-slate-700 hover:bg-slate-50",
+                  ].join(" ")}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
+          </nav>
+        </aside>
+
+        {/* Mobile Sidebar Drawer */}
+        {mobileSidebarOpen ? (
+          <div className="fixed inset-0 z-[1500] md:hidden">
+            <div
+              className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+              onClick={() => setMobileSidebarOpen(false)}
+            />
+            <div className="relative w-[300px] max-w-[85vw] h-full bg-white shadow-2xl flex flex-col animate-in slide-in-from-left duration-200">
+              <div className="px-4 py-5 border-b border-slate-200 flex items-center justify-between">
+                <div>
+                  <div className="text-lg font-black text-slate-900">Admin Dashboard</div>
+                  <div className="mt-0.5 text-[11px] font-semibold text-slate-500">
+                    手動入料 / 審批 / 刪除
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMobileSidebarOpen(false)}
+                  aria-label="關閉側邊選單"
+                  className="p-2 text-gray-500 hover:text-gray-800 transition-colors rounded-xl hover:bg-slate-100"
+                >
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
+                </button>
+              </div>
+              <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto">
+                {sidebarNavItems.map((item) => {
+                  const active = activeDashboardTab === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => {
+                        setActiveDashboardTab(item.key);
+                        setMobileSidebarOpen(false);
+                      }}
+                      className={[
+                        "w-full text-left rounded-2xl px-4 py-3 text-sm font-black transition",
+                        active
+                          ? "bg-slate-900 text-white shadow-sm"
+                          : "text-slate-700 hover:bg-slate-50",
+                      ].join(" ")}
+                    >
+                      {item.label}
+                    </button>
+                  );
+                })}
+              </nav>
             </div>
           </div>
-        </div>
-      </div>
+        ) : null}
 
-      <div className="grid w-full grid-cols-1 gap-4 px-4 py-4 lg:grid-cols-12">
+        {/* Main Content Column */}
+        <div className="flex-1 flex flex-col min-w-0 w-full">
+          {/* Top Header Bar */}
+          <header className="sticky top-0 z-[1200] border-b border-slate-200 bg-white">
+            <div className="w-full h-[64px] md:h-[72px] px-4 md:px-8 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setMobileSidebarOpen(true)}
+                aria-label="開啟側邊選單"
+                className="md:hidden p-2 -ml-1 rounded-xl text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 12h18" />
+                  <path d="M3 6h18" />
+                  <path d="M3 18h18" />
+                </svg>
+              </button>
+              <div className="md:hidden">
+                <div className="text-base font-black text-slate-900">Admin Dashboard</div>
+              </div>
+              <div className="hidden md:block">
+                <div className="text-sm font-semibold text-slate-500">
+                  {sidebarNavItems.find((n) => n.key === activeDashboardTab)?.label || ""}
+                </div>
+              </div>
+            </div>
+          </header>
+
+          {/* Main Body */}
+          <main className="w-full space-y-6">
         <div
           className={[
             activeDashboardTab === "board"
               ? showManualEntryForm
-                ? "order-2 lg:col-span-12"
+                ? ""
                 : "hidden"
-              : "lg:col-span-12",
+              : "",
           ].join(" ")}
         >
           <div
             className={[
               activeDashboardTab === "system" ? "" : "hidden",
-              "mb-4 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-black/5",
+              "mb-4 rounded-3xl bg-white p-4 md:p-6 shadow-xl ring-1 ring-black/5",
             ].join(" ")}
           >
             <div className="flex items-center justify-between gap-3">
@@ -3169,7 +3255,7 @@ export default function AdminDashboardPage() {
           <div
             className={[
               activeDashboardTab === "system" ? "" : "hidden",
-              "mb-4 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-black/5",
+              "mb-4 rounded-3xl bg-white p-4 md:p-6 shadow-xl ring-1 ring-black/5",
             ].join(" ")}
           >
             <div className="flex items-center justify-between gap-3">
@@ -3229,7 +3315,7 @@ export default function AdminDashboardPage() {
           <div
             className={[
               activeDashboardTab === "system" ? "" : "hidden",
-              "mb-4 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-black/5",
+              "mb-4 rounded-3xl bg-white p-4 md:p-6 shadow-xl ring-1 ring-black/5",
             ].join(" ")}
           >
             <div className="flex items-center justify-between gap-3">
@@ -3325,7 +3411,7 @@ export default function AdminDashboardPage() {
           <div
             className={[
               activeDashboardTab === "sos-breeds" ? "" : "hidden",
-              "mb-4 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-black/5",
+              "mb-4 rounded-3xl bg-white p-4 md:p-6 shadow-xl ring-1 ring-black/5",
             ].join(" ")}
           >
             <div className="flex items-center justify-between gap-3">
@@ -3386,21 +3472,21 @@ export default function AdminDashboardPage() {
                       <option value="bird">雀鳥</option>
                     </select>
                   </label>
-                  <label className="block">
+                  <label className="block w-full md:w-auto">
                     <div className="text-xs font-bold text-slate-600">品種名稱</div>
                     <input
                       value={petBreedForm.breed_name}
                       onChange={(e) => setPetBreedForm((prev) => ({ ...prev, breed_name: e.target.value }))}
-                      className="mt-2 w-[240px] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                      className="mt-2 w-full md:w-[240px] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
                       placeholder="例如：唐狗 / 雞尾鸚鵡"
                     />
                   </label>
-                  <label className="block">
+                  <label className="block w-full md:w-auto">
                     <div className="text-xs font-bold text-slate-600">排序</div>
                     <input
                       value={petBreedForm.sort_order}
                       onChange={(e) => setPetBreedForm((prev) => ({ ...prev, sort_order: e.target.value }))}
-                      className="mt-2 w-[90px] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                      className="mt-2 w-full md:w-[90px] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
                       inputMode="numeric"
                       placeholder="100"
                     />
@@ -3420,92 +3506,191 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="overflow-hidden rounded-2xl ring-1 ring-slate-200">
-                <div className="grid grid-cols-[84px_70px_1fr_190px] gap-2 bg-slate-100 px-4 py-3 text-xs font-black text-slate-700">
-                  <div>排序</div>
-                  <div>大類</div>
-                  <div>品種</div>
-                  <div className="text-right">操作</div>
+                {/* Desktop Table */}
+                <div className="hidden md:block">
+                  <div className="grid grid-cols-[84px_70px_1fr_190px] gap-2 bg-slate-100 px-4 py-3 text-xs font-black text-slate-700">
+                    <div>排序</div>
+                    <div>大類</div>
+                    <div>品種</div>
+                    <div className="text-right">操作</div>
+                  </div>
+                  <div className="max-h-[340px] overflow-y-auto bg-white">
+                    {loadingPetBreeds ? (
+                      <div className="px-4 py-4 text-sm font-semibold text-slate-500">讀取中…</div>
+                    ) : filteredPetBreeds.length === 0 ? (
+                      <div className="px-4 py-4 text-sm font-semibold text-slate-500">目前沒有品種資料</div>
+                    ) : (
+                      filteredPetBreeds.map((row) => {
+                        const label = row.pet_type === "cat" ? "貓" : row.pet_type === "bird" ? "雀鳥" : "狗";
+                        const deleting = deletingPetBreedId === row.id;
+                        const editing = editingPetBreedId === row.id;
+                        const saving = savingPetBreedId === row.id;
+                        return (
+                          <div
+                            key={row.id}
+                            className="grid grid-cols-[84px_70px_1fr_190px] items-center gap-2 border-t border-slate-100 px-4 py-3 text-sm"
+                          >
+                            <div className="font-black text-slate-900">{row.sort_order}</div>
+                            <div className="font-semibold text-slate-700">{label}</div>
+                            <div>
+                              {editing ? (
+                                <input
+                                  value={petBreedEditForm.breed_name}
+                                  onChange={(e) => setPetBreedEditForm({ breed_name: e.target.value })}
+                                  className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
+                                />
+                              ) : (
+                                <div className="font-semibold text-slate-900">{row.breed_name}</div>
+                              )}
+                            </div>
+                            <div className="flex justify-end gap-2">
+                              {editing ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => void savePetBreedEdit(row)}
+                                    disabled={Boolean(savingPetBreedId)}
+                                    className={[
+                                      "rounded-xl px-3 py-2 text-xs font-black text-white",
+                                      saving ? "bg-slate-400" : "bg-emerald-600 hover:bg-emerald-700",
+                                    ].join(" ")}
+                                  >
+                                    {saving ? "儲存中…" : "儲存"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditPetBreed}
+                                    disabled={Boolean(savingPetBreedId)}
+                                    className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-900 hover:bg-slate-200"
+                                  >
+                                    取消
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditPetBreed(row)}
+                                    disabled={Boolean(deletingPetBreedId) || Boolean(savingPetBreedId)}
+                                    className="rounded-xl bg-sky-600 px-3 py-2 text-xs font-black text-white hover:bg-sky-700"
+                                  >
+                                    ✏️ 編輯
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void deletePetBreed(row)}
+                                    disabled={Boolean(deletingPetBreedId) || Boolean(savingPetBreedId)}
+                                    className={[
+                                      "rounded-xl px-3 py-2 text-xs font-black text-white",
+                                      deleting ? "bg-slate-400" : "bg-red-600 hover:bg-red-700",
+                                    ].join(" ")}
+                                  >
+                                    {deleting ? "刪除中…" : "🗑️ 刪除"}
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
-                <div className="max-h-[340px] overflow-y-auto bg-white">
-                  {loadingPetBreeds ? (
-                    <div className="px-4 py-4 text-sm font-semibold text-slate-500">讀取中…</div>
-                  ) : filteredPetBreeds.length === 0 ? (
-                    <div className="px-4 py-4 text-sm font-semibold text-slate-500">目前沒有品種資料</div>
-                  ) : (
-                    filteredPetBreeds.map((row) => {
-                      const label = row.pet_type === "cat" ? "貓" : row.pet_type === "bird" ? "雀鳥" : "狗";
-                      const deleting = deletingPetBreedId === row.id;
-                      const editing = editingPetBreedId === row.id;
-                      const saving = savingPetBreedId === row.id;
-                      return (
-                        <div
-                          key={row.id}
-                          className="grid grid-cols-[84px_70px_1fr_190px] items-center gap-2 border-t border-slate-100 px-4 py-3 text-sm"
-                        >
-                          <div className="font-black text-slate-900">{row.sort_order}</div>
-                          <div className="font-semibold text-slate-700">{label}</div>
-                          <div>
-                            {editing ? (
-                              <input
-                                value={petBreedEditForm.breed_name}
-                                onChange={(e) => setPetBreedEditForm({ breed_name: e.target.value })}
-                                className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
-                              />
-                            ) : (
-                              <div className="font-semibold text-slate-900">{row.breed_name}</div>
-                            )}
+
+                {/* Mobile Cards */}
+                <div className="block md:hidden">
+                  <div className="bg-slate-100 px-4 py-3 text-xs font-black text-slate-700">品種列表</div>
+                  <div className="space-y-2 p-3 max-h-[500px] overflow-y-auto bg-white">
+                    {loadingPetBreeds ? (
+                      <div className="px-3 py-3 text-sm font-semibold text-slate-500">讀取中…</div>
+                    ) : filteredPetBreeds.length === 0 ? (
+                      <div className="px-3 py-3 text-sm font-semibold text-slate-500">目前沒有品種資料</div>
+                    ) : (
+                      filteredPetBreeds.map((row) => {
+                        const label = row.pet_type === "cat" ? "貓" : row.pet_type === "bird" ? "雀鳥" : "狗";
+                        const deleting = deletingPetBreedId === row.id;
+                        const editing = editingPetBreedId === row.id;
+                        const saving = savingPetBreedId === row.id;
+                        return (
+                          <div
+                            key={row.id}
+                            className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="text-sm font-black text-slate-900">
+                                  {editing ? (
+                                    <input
+                                      value={petBreedEditForm.breed_name}
+                                      onChange={(e) => setPetBreedEditForm({ breed_name: e.target.value })}
+                                      className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-900"
+                                    />
+                                  ) : (
+                                    row.breed_name
+                                  )}
+                                </div>
+                                <div className="mt-1 flex flex-wrap gap-1.5">
+                                  <span className="inline-flex rounded-full bg-slate-100 px-2 py-1 text-[11px] font-black text-slate-700">
+                                    {label}
+                                  </span>
+                                  <span className="inline-flex rounded-full bg-sky-100 px-2 py-1 text-[11px] font-black text-sky-800">
+                                    排序 {row.sort_order}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {editing ? (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => void savePetBreedEdit(row)}
+                                    disabled={Boolean(savingPetBreedId)}
+                                    className={[
+                                      "flex-1 rounded-xl px-3 py-2 text-xs font-black text-white",
+                                      saving ? "bg-slate-400" : "bg-emerald-600",
+                                    ].join(" ")}
+                                  >
+                                    {saving ? "儲存中…" : "✅ 儲存"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={cancelEditPetBreed}
+                                    disabled={Boolean(savingPetBreedId)}
+                                    className="flex-1 rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-900"
+                                  >
+                                    取消
+                                  </button>
+                                </>
+                              ) : (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => startEditPetBreed(row)}
+                                    disabled={Boolean(deletingPetBreedId) || Boolean(savingPetBreedId)}
+                                    className="flex-1 rounded-xl bg-sky-600 px-3 py-2 text-xs font-black text-white"
+                                  >
+                                    ✏️ 編輯
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => void deletePetBreed(row)}
+                                    disabled={Boolean(deletingPetBreedId) || Boolean(savingPetBreedId)}
+                                    className={[
+                                      "flex-1 rounded-xl px-3 py-2 text-xs font-black text-white",
+                                      deleting ? "bg-slate-400" : "bg-red-600",
+                                    ].join(" ")}
+                                  >
+                                    {deleting ? "刪除中…" : "🗑️ 刪除"}
+                                  </button>
+                                </>
+                              )}
+                            </div>
                           </div>
-                          <div className="flex justify-end gap-2">
-                            {editing ? (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => void savePetBreedEdit(row)}
-                                  disabled={Boolean(savingPetBreedId)}
-                                  className={[
-                                    "rounded-xl px-3 py-2 text-xs font-black text-white",
-                                    saving ? "bg-slate-400" : "bg-emerald-600 hover:bg-emerald-700",
-                                  ].join(" ")}
-                                >
-                                  {saving ? "儲存中…" : "儲存"}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={cancelEditPetBreed}
-                                  disabled={Boolean(savingPetBreedId)}
-                                  className="rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-900 hover:bg-slate-200"
-                                >
-                                  取消
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => startEditPetBreed(row)}
-                                  disabled={Boolean(deletingPetBreedId) || Boolean(savingPetBreedId)}
-                                  className="rounded-xl bg-sky-600 px-3 py-2 text-xs font-black text-white hover:bg-sky-700"
-                                >
-                                  ✏️ 編輯
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => void deletePetBreed(row)}
-                                  disabled={Boolean(deletingPetBreedId) || Boolean(savingPetBreedId)}
-                                  className={[
-                                    "rounded-xl px-3 py-2 text-xs font-black text-white",
-                                    deleting ? "bg-slate-400" : "bg-red-600 hover:bg-red-700",
-                                  ].join(" ")}
-                                >
-                                  {deleting ? "刪除中…" : "🗑️ 刪除"}
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -3514,7 +3699,7 @@ export default function AdminDashboardPage() {
           <div
             className={[
               activeDashboardTab === "guide-categories" ? "" : "hidden",
-              "mb-4 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-black/5",
+              "mb-4 rounded-3xl bg-white p-4 md:p-6 shadow-xl ring-1 ring-black/5",
             ].join(" ")}
           >
             <div className="flex items-center justify-between gap-3">
@@ -3869,7 +4054,7 @@ export default function AdminDashboardPage() {
           <div
             className={[
               activeDashboardTab === "facility-tags" ? "" : "hidden",
-              "mb-4 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-black/5",
+              "mb-4 rounded-3xl bg-white p-4 md:p-6 shadow-xl ring-1 ring-black/5",
             ].join(" ")}
           >
             <div className="flex items-center justify-between gap-3">
@@ -4081,7 +4266,7 @@ export default function AdminDashboardPage() {
           <div
             className={[
               activeDashboardTab === "staged-places" ? "" : "hidden",
-              "mb-4 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-black/5",
+              "mb-4 rounded-3xl bg-white p-4 md:p-6 shadow-xl ring-1 ring-black/5",
             ].join(" ")}
           >
             <div className="flex items-center justify-between gap-3">
@@ -4653,7 +4838,7 @@ export default function AdminDashboardPage() {
           <div
             className={[
               activeDashboardTab === "scraper-jobs" ? "" : "hidden",
-              "mb-4 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-black/5",
+              "mb-4 rounded-3xl bg-white p-4 md:p-6 shadow-xl ring-1 ring-black/5",
             ].join(" ")}
           >
             <div className="flex items-center justify-between gap-3">
@@ -4808,7 +4993,7 @@ export default function AdminDashboardPage() {
           <div
             className={[
               activeDashboardTab === "guide-places" ? "" : "hidden",
-              "mb-4 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-black/5",
+              "mb-4 rounded-3xl bg-white p-4 md:p-6 shadow-xl ring-1 ring-black/5",
             ].join(" ")}
           >
             <div className="flex items-center justify-between gap-3">
@@ -5811,8 +5996,8 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className={activeDashboardTab === "board" ? "order-1 lg:col-span-12" : "hidden"}>
-          <div className="mb-4 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-black/5">
+        <div className={activeDashboardTab === "board" ? "" : "hidden"}>
+          <div className="mb-4 rounded-3xl bg-white p-4 md:p-6 shadow-xl ring-1 ring-black/5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="text-base font-black text-slate-900">🚨 案件審批看板</div>
@@ -5833,7 +6018,7 @@ export default function AdminDashboardPage() {
             </div>
           </div>
 
-          <div className="rounded-3xl bg-white p-6 shadow-xl ring-1 ring-black/5">
+          <div className="rounded-3xl bg-white p-4 md:p-6 shadow-xl ring-1 ring-black/5">
             <div className="flex items-center justify-between">
               <div className="text-base font-black text-slate-900">數據與審批管理看板</div>
               <button
@@ -6016,6 +6201,8 @@ export default function AdminDashboardPage() {
               )}
             </div>
           </div>
+        </div>
+          </main>
         </div>
       </div>
 
