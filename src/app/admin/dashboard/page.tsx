@@ -3094,7 +3094,7 @@ export default function AdminDashboardPage() {
                 <div className="flex w-[440px] flex-col gap-5 rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200">
                   <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
                     <div className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      手機 Header · 單行精簡（h-[60px]｜左 Logo h-10 · 右 SOS 精簡 + 通知 + 頭像）
+                      手機 Header · 單行精簡（h-[60px]｜左 Logo h-10 · 右 SOS 精簡 + 指南 精簡 + 通知 + 頭像）
                     </div>
                     <div className="w-full bg-white border-b border-gray-100 flex items-center justify-between px-3 h-[60px] relative">
                       <div className="flex items-center justify-start p-0 my-0">
@@ -3109,8 +3109,15 @@ export default function AdminDashboardPage() {
                           />
                         </div>
                       </div>
-                      <div className="flex items-center justify-end gap-1.5">
-                        <div className="inline-flex items-center justify-center rounded-xl bg-red-600 px-2.5 py-1 text-center text-xs font-black text-white shadow">🚨 SOS</div>
+                      <div className="flex items-center justify-end gap-1.5 sm:gap-3">
+                        <div className="inline-flex items-center justify-center rounded-full bg-red-600 px-2.5 py-1 text-center text-xs font-black text-white shadow-sm">
+                          <span className="sm:hidden">🚨 SOS</span>
+                          <span className="hidden sm:inline">🚨 SOS 尋寵地圖</span>
+                        </div>
+                        <div className="inline-flex items-center justify-center rounded-full bg-slate-100 px-2.5 py-1 text-center text-xs font-black text-slate-700 ring-1 ring-slate-200 shadow-sm">
+                          <span className="sm:hidden">🐾 指南</span>
+                          <span className="hidden sm:inline">🐾 香港寵物指南</span>
+                        </div>
                         <div className="h-9 w-9 rounded-2xl bg-slate-100 ring-1 ring-slate-200" />
                         <div className="h-9 w-9 rounded-2xl bg-slate-900 ring-1 ring-slate-900/10" />
                       </div>
@@ -3151,8 +3158,8 @@ export default function AdminDashboardPage() {
 
                   <div className="text-[11px] font-semibold text-slate-500">
                     {(logoPreviewUrl || systemSettings.site_logo_url)
-                      ? "手機：單行 h-[60px] 精簡（SOS 精簡版按鈕排右）｜桌面：h-28 大 Logo md:h-24 + SOS/指南 absolute 正中"
-                      : "手機：單行 h-[60px] 精簡（SOS 精簡版按鈕排右）｜桌面：h-28 大 Logo md:h-24 + SOS/指南 absolute 正中"}
+                      ? "手機：單行 h-[60px] 精簡（SOS 短稱 + 指南短稱 + 通知 + 頭像，單行緊湊）｜桌面：h-28 大 Logo md:h-24 + SOS/指南 absolute 正中"
+                      : "手機：單行 h-[60px] 精簡（SOS 短稱 + 指南短稱 + 通知 + 頭像，單行緊湊）｜桌面：h-28 大 Logo md:h-24 + SOS/指南 absolute 正中"}
                   </div>
                 </div>
               </div>

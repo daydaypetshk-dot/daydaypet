@@ -3246,17 +3246,32 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-1.5 md:gap-3">
+            <div className="flex items-center justify-end gap-1.5 sm:gap-3">
               <button
                 type="button"
                 onClick={() => setMode("sos")}
                 className={[
-                  "inline-flex items-center justify-center rounded-xl px-2.5 py-1 text-center text-xs font-black transition md:hidden",
-                  mode === "sos" ? "bg-red-600 text-white shadow" : "bg-slate-100 text-slate-700 hover:bg-slate-200/80 ring-1 ring-slate-200",
+                  "inline-flex items-center justify-center rounded-full px-2.5 py-1 text-center text-xs font-black transition shadow-sm md:hidden",
+                  mode === "sos" ? "bg-red-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200/80 ring-1 ring-slate-200",
                 ].join(" ")}
               >
-                🚨 SOS
+                <span className="sm:hidden">🚨 SOS</span>
+                <span className="hidden sm:inline">🚨 SOS 尋寵地圖</span>
               </button>
+
+              {SOS_ENABLED ? (
+                <button
+                  type="button"
+                  onClick={() => setMode("life")}
+                  className={[
+                    "inline-flex items-center justify-center rounded-full px-2.5 py-1 text-center text-xs font-black transition shadow-sm md:hidden",
+                    mode === "life" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200/80 ring-1 ring-slate-200",
+                  ].join(" ")}
+                >
+                  <span className="sm:hidden">🐾 指南</span>
+                  <span className="hidden sm:inline">🐾 香港寵物指南</span>
+                </button>
+              ) : null}
 
               <button
                 type="button"
