@@ -4224,35 +4224,38 @@ export default function Home() {
         </div>
       ) : null}
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[1200]">
-        <div
-          className={[
-            "pointer-events-auto relative mx-auto w-full max-h-[90svh] overflow-hidden rounded-t-3xl bg-white shadow-2xl transition-transform duration-300 md:max-w-5xl md:rounded-3xl",
-            selectedGuidePlace ? "translate-y-0" : "translate-y-full",
-          ].join(" ")}
-        >
-          {selectedGuidePlace ? (
-            <>
-              <button
-                type="button"
-                onClick={() => setSelectedGuidePlaceId("")}
-                aria-label="關閉彈窗"
-                className="absolute right-4 top-4 z-50 rounded-full bg-gray-50 p-2 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600"
-              >
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M18 6 6 18" />
-                  <path d="m6 6 12 12" />
-                </svg>
-              </button>
+      {selectedGuidePlace ? (
+        <div className="fixed inset-0 z-[1550] bg-black/50 backdrop-blur-sm">
+          <div className="flex min-h-full items-end justify-center p-0 sm:items-center sm:p-6">
+            <div
+              className={[
+                "relative z-50 mx-auto w-full max-h-[85vh] md:max-h-[90vh] overflow-hidden rounded-t-3xl bg-white shadow-2xl transition-transform duration-300 md:max-w-5xl md:rounded-3xl",
+              ].join(" ")}
+            >
+              <div className="sticky top-0 z-10 bg-white pb-3 border-b border-gray-100 pt-4 md:pt-6">
+                <div className="px-4 md:px-6 flex items-start justify-between gap-4">
+                  <div className="pr-10 text-[2.2rem] font-black leading-tight text-gray-900">
+                    {selectedGuidePlace.title}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGuidePlaceId("")}
+                    aria-label="關閉彈窗"
+                    className="p-2 text-gray-500 hover:text-gray-800 transition-colors shrink-0"
+                  >
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M18 6 6 18" />
+                      <path d="m6 6 12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
 
-              <div className="max-h-[90svh] overflow-y-auto">
-                <div className="px-4 pb-6 pt-6 md:px-6">
+              <div className="max-h-[85vh] md:max-h-[90vh] overflow-y-auto pt-4 md:pt-6">
+                <div className="px-4 pb-6 md:px-6">
                   <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
                     <div className="space-y-4">
                       <div className="rounded-2xl bg-white p-1">
-                        <div className="mb-4 pr-14 text-[2.2rem] font-black leading-tight text-gray-900">
-                          {selectedGuidePlace.title}
-                        </div>
 
                         <div className="space-y-3">
                           <div className="space-y-3 rounded-2xl bg-slate-50 p-4">
@@ -4365,32 +4368,40 @@ export default function Home() {
                   </div>
                 </div>
               </div>
-            </>
-          ) : null}
+            </div>
+          </div>
         </div>
+      ) : null}
 
-        <div
-          className={[
-            "pointer-events-auto relative mx-auto w-full max-h-[90svh] overflow-hidden rounded-t-3xl bg-white shadow-2xl transition-transform duration-300 md:max-w-5xl md:rounded-3xl",
-            selectedPet ? "translate-y-0" : "translate-y-full",
-          ].join(" ")}
-        >
-          {selectedPet ? (
-            <>
-              <button
-                type="button"
-                onClick={() => setSelectedPetId("")}
-                aria-label="關閉彈窗"
-                className="absolute right-4 top-4 z-50 rounded-full bg-gray-50 p-2 text-gray-400 transition-colors hover:bg-gray-200 hover:text-gray-600"
-              >
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M18 6 6 18" />
-                  <path d="m6 6 12 12" />
-                </svg>
-              </button>
+      {selectedPet ? (
+        <div className="fixed inset-0 z-[1550] bg-black/50 backdrop-blur-sm">
+          <div className="flex min-h-full items-end justify-center p-0 sm:items-center sm:p-6">
+            <div
+              className={[
+                "relative z-50 mx-auto w-full max-h-[85vh] md:max-h-[90vh] overflow-hidden rounded-t-3xl bg-white shadow-2xl transition-transform duration-300 md:max-w-5xl md:rounded-3xl",
+              ].join(" ")}
+            >
+              <div className="sticky top-0 z-10 bg-white pb-3 border-b border-gray-100 pt-4 md:pt-6">
+                <div className="px-4 md:px-6 flex items-start justify-between gap-4">
+                  <div className="pr-10 text-[2.2rem] font-black leading-tight text-gray-900">
+                    {selectedPet.title}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPetId("")}
+                    aria-label="關閉彈窗"
+                    className="p-2 text-gray-500 hover:text-gray-800 transition-colors shrink-0"
+                  >
+                    <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M18 6 6 18" />
+                      <path d="m6 6 12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
 
-              <div className="max-h-[90svh] overflow-y-auto">
-                <div className="px-4 pb-6 pt-6 md:px-6">
+              <div className="max-h-[85vh] md:max-h-[90vh] overflow-y-auto pt-4 md:pt-6">
+                <div className="px-4 pb-6 md:px-6">
                   {(() => {
                     const raw = String(selectedPet.phone || "").trim();
                     const digits = raw.replace(/\D/g, "");
@@ -4417,9 +4428,6 @@ export default function Home() {
                       <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-2">
                         <div className="space-y-4">
                           <div className="rounded-2xl bg-white p-1">
-                            <div className="mb-4 pr-14 text-[2.2rem] font-black leading-tight text-gray-900">
-                              {selectedPet.title}
-                            </div>
                             <div className="space-y-3">
                               <div className="space-y-3 rounded-2xl bg-slate-50 p-4">
                                 <div className="text-base font-medium text-slate-800">
@@ -4785,10 +4793,10 @@ export default function Home() {
                   })()}
                 </div>
               </div>
-            </>
-          ) : null}
+            </div>
+          </div>
         </div>
-      </div>
+      ) : null}
         </div>
       </div>
 
