@@ -3091,13 +3091,13 @@ export default function AdminDashboardPage() {
 
               <div>
                 <div className="mb-2 text-sm font-bold text-slate-700">即時預覽（Live Preview）</div>
-                <div className="flex w-[320px] flex-col gap-4 rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200">
+                <div className="flex w-[340px] flex-col gap-4 rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200">
                   <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-200">
                     <div className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                       手機 Header（h-12 = 48px，純 Logo）
                     </div>
-                    <div className="flex min-h-[72px] items-center">
-                      <div className="relative flex shrink-0 items-center justify-center rounded-xl border-0 bg-transparent px-2 py-1">
+                    <div className="flex min-h-[72px] items-center py-0.5">
+                      <div className="relative flex shrink-0 items-center justify-center rounded-xl border-0 bg-transparent px-2 py-0.5">
                         <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xl font-black text-slate-700 opacity-0">日</span>
                         <img
                           src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
@@ -3115,15 +3115,15 @@ export default function AdminDashboardPage() {
 
                   <div className="rounded-2xl bg-white p-5 ring-1 ring-slate-200">
                     <div className="mb-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      桌面 Header（md:h-20 = 80px，純 Logo）
+                      桌面 Header（h-[72px] / md:h-20 = 72~80px，純 Logo）
                     </div>
-                    <div className="flex min-h-[80px] items-center">
-                      <div className="relative flex shrink-0 items-center justify-center rounded-xl border-0 bg-transparent px-2 py-1">
-                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-2xl font-black text-slate-700 opacity-0">日</span>
+                    <div className="flex min-h-[80px] items-center py-0.5 md:py-1">
+                      <div className="relative flex shrink-0 items-center justify-center rounded-xl border-0 bg-transparent px-2 py-0.5 md:py-1">
+                        <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-3xl font-black text-slate-700 opacity-0">日</span>
                         <img
                           src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
                           alt="日日寵"
-                          className="relative z-10 h-16 w-auto object-contain max-w-none md:h-20"
+                          className="relative z-10 h-[72px] w-auto object-contain max-w-none md:h-20"
                           onError={(event) => {
                             event.currentTarget.style.display = "none";
                             const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
