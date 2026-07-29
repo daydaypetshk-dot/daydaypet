@@ -4,6 +4,7 @@ export const SYSTEM_SETTING_KEYS = [
   "admin_whatsapp_number",
   "template_admin_notification",
   "template_citizen_approved",
+  "site_logo_url",
 ] as const;
 
 export type SystemSettingKey = (typeof SYSTEM_SETTING_KEYS)[number];
@@ -32,6 +33,11 @@ export const DEFAULT_SYSTEM_SETTINGS: Record<SystemSettingKey, SystemSettingReco
       "【日日寵】好消息！您提交的報料（${pet_name}）已通過審核並正式上架！感謝您的熱心幫忙。查看連結：${pet_url}",
     description: "案件成功上架後發送給市民的通知範本",
   },
+  site_logo_url: {
+    key: "site_logo_url",
+    value: "",
+    description: "自訂網站 Logo 圖片網址（留空則使用預設 /logo.png）",
+  },
 };
 
 function normalizeValue(value: unknown, fallback: string) {
@@ -54,6 +60,7 @@ export async function getSystemSettings() {
     admin_whatsapp_number: { ...DEFAULT_SYSTEM_SETTINGS.admin_whatsapp_number },
     template_admin_notification: { ...DEFAULT_SYSTEM_SETTINGS.template_admin_notification },
     template_citizen_approved: { ...DEFAULT_SYSTEM_SETTINGS.template_citizen_approved },
+    site_logo_url: { ...DEFAULT_SYSTEM_SETTINGS.site_logo_url },
   };
 
   for (const row of data ?? []) {

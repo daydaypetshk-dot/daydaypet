@@ -41,6 +41,7 @@ import {
   type SubscriptionDistrict,
 } from "@/lib/push/district-selection";
 import { supabaseBrowser } from "@/lib/supabase/browser";
+import { useSiteLogo } from "@/lib/site-logo/client";
 
 type Mode = "life" | "sos";
 
@@ -1081,6 +1082,7 @@ function SosPetListCard({
 
 export default function Home() {
   const supabase = useMemo(() => supabaseBrowser(), []);
+  const { effectiveLogoUrl } = useSiteLogo();
   const SOS_ENABLED = (() => {
     const raw = String(process.env.NEXT_PUBLIC_ENABLE_SOS ?? "")
       .trim()
@@ -3208,7 +3210,7 @@ export default function Home() {
                 <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
                   <span className="absolute inset-0 flex items-center justify-center text-sm font-black text-slate-700">日</span>
                   <img
-                    src="/logo.png"
+                    src={effectiveLogoUrl}
                     alt="日日寵 Logo"
                     className="relative z-10 h-full w-full object-contain"
                     loading="eager"
@@ -3322,7 +3324,7 @@ export default function Home() {
                 <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
                   <span className="absolute inset-0 flex items-center justify-center text-sm font-black text-slate-700">日</span>
                   <img
-                    src="/logo.png"
+                    src={effectiveLogoUrl}
                     alt="日日寵 Logo"
                     className="relative z-10 h-full w-full object-contain"
                     loading="eager"

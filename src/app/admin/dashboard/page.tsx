@@ -20,7 +20,7 @@ import {
 import { getDisplayAddress, isInvalidLocationText } from "@/lib/pets/display";
 import { DISTRICTS_HK, reverseGeocodeDistrict } from "@/lib/pets/district";
 import { geocodeAddressWithNominatim, geocodeHongKongAddress } from "@/lib/pets/geocoding";
-import { uploadPetImage, validatePetImageFile } from "@/lib/pets/image-upload";
+import { uploadPetImage, validatePetImageFile, fileToDataUrl } from "@/lib/pets/image-upload";
 import { supabaseBrowser } from "@/lib/supabase/browser";
 import type { PetInsert, PetRow, PetStatus, PetTimelineItem } from "@/lib/pets/db";
 
@@ -47,6 +47,7 @@ type SystemSettingsForm = {
   admin_whatsapp_number: string;
   template_admin_notification: string;
   template_citizen_approved: string;
+  site_logo_url: string;
 };
 
 type BreedPetType = "cat" | "dog" | "bird";
@@ -162,6 +163,7 @@ const DEFAULT_SYSTEM_SETTINGS: SystemSettingsForm = {
     "【日日寵】有新報料喇！毛孩：${pet_name}，特徵：${description}。請即入後台審批：${admin_url}",
   template_citizen_approved:
     "【日日寵】好消息！您提交的報料（${pet_name}）已通過審核並正式上架！感謝您的熱心幫忙。查看連結：${pet_url}",
+  site_logo_url: "",
 };
 
 const GUIDE_CATEGORY_ICON_OPTIONS = ["🩺", "🌳", "🛒", "✂️", "🌈", "🎓", "🍴", "📖", "🐾"];
@@ -551,6 +553,8 @@ export default function AdminDashboardPage() {
   const [systemSettings, setSystemSettings] = useState<SystemSettingsForm>(DEFAULT_SYSTEM_SETTINGS);
   const [loadingSystemSettings, setLoadingSystemSettings] = useState(false);
   const [savingSystemSettings, setSavingSystemSettings] = useState(false);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState<string>("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const formTimeParts = useMemo(() => {
     return parseIsoToLocalParts(form.lost_time) ?? parseIsoToLocalParts(new Date().toISOString())!;
   }, [form.lost_time]);
@@ -699,7 +703,10 @@ export default function AdminDashboardPage() {
           template_citizen_approved:
             data.settings.template_citizen_approved?.value ??
             DEFAULT_SYSTEM_SETTINGS.template_citizen_approved,
+          site_logo_url:
+            data.settings.site_logo_url?.value ?? DEFAULT_SYSTEM_SETTINGS.site_logo_url,
         });
+        setLogoPreviewUrl(data.settings.site_logo_url?.value?.trim() || "");
       } catch (error) {
         if (!active) return;
         const message = error instanceof Error ? error.message : "讀取系統設定失敗";
@@ -2772,6 +2779,134 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const handleLogoFileSelect = async (files?: FileList | File[]) => {
+    const list = Array.from(files ?? []).filter(Boolean);
+    if (list.length === 0) return;
+    const file = list[0];
+    const allowedTypes = new Set([
+      "image/png",
+      "image/jpeg",
+      "image/jpg",
+      "image/webp",
+      "image/svg+xml",
+    ]);
+    if (!allowedTypes.has(file.type)) {
+      showToast("只支援 PNG / JPG / SVG / WEBP 圖片格式。");
+      return;
+    }
+    const maxBytes = 5 * 1024 * 1024;
+    if (file.size > maxBytes) {
+      showToast("圖片大小不可超過 5MB。");
+      return;
+    }
+    try {
+      const preview = URL.createObjectURL(file);
+      setLogoPreviewUrl(preview);
+      setUploadingLogo(true);
+      let publicUrl = "";
+      const supabaseClient = supabase;
+      if (file.type === "image/svg+xml") {
+        const ext = "svg";
+        const folder = "site-assets";
+        const bucket = "pet-images";
+        const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error } = await supabaseClient.storage.from(bucket).upload(path, file, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: file.type,
+        });
+        if (error) throw new Error(error.message);
+        const { data } = supabaseClient.storage.from(bucket).getPublicUrl(path);
+        if (!data.publicUrl) throw new Error("SVG 上傳成功，但無法取得公開網址。");
+        publicUrl = data.publicUrl;
+      } else {
+        publicUrl = await uploadPetImage(supabaseClient, file, {
+          folder: "site-assets",
+          bucket: "pet-images",
+        });
+      }
+      setSystemSettings((prev) => ({ ...prev, site_logo_url: publicUrl }));
+      showToast("✅ Logo 已上傳，請按下方「儲存 Logo」完成寫入。", "success");
+    } catch (err) {
+      const msg = err instanceof Error && err.message ? err.message : "Logo 上傳失敗";
+      showToast(msg);
+      const currentSaved = systemSettings.site_logo_url.trim();
+      setLogoPreviewUrl(currentSaved);
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleSaveLogoOnly = async () => {
+    if (savingSystemSettings) return;
+    setSavingSystemSettings(true);
+    try {
+      const nextUrl = systemSettings.site_logo_url.trim();
+      const res = await fetch("/api/admin/system-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ site_logo_url: nextUrl }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        settings?: Partial<Record<keyof SystemSettingsForm, { value: string }>>;
+      };
+      if (!res.ok) throw new Error(data.error || "儲存 Logo 失敗");
+      const savedUrl = (data.settings?.site_logo_url?.value ?? nextUrl).trim();
+      setSystemSettings((prev) => ({ ...prev, site_logo_url: savedUrl }));
+      setLogoPreviewUrl(savedUrl);
+      try {
+        const logoCtx = (window as unknown as { __daydaypetLogoUpdate?: (u: string) => void });
+        if (typeof logoCtx.__daydaypetLogoUpdate === "function") {
+          logoCtx.__daydaypetLogoUpdate(savedUrl);
+        }
+      } catch {
+        /* ignore */
+      }
+      showToast("✅ Logo 已儲存，全站 Header 已同步更新。", "success");
+    } catch (err) {
+      const msg = err instanceof Error && err.message ? err.message : "儲存 Logo 失敗";
+      showToast(msg);
+    } finally {
+      setSavingSystemSettings(false);
+    }
+  };
+
+  const handleResetLogoToDefault = async () => {
+    const ok = window.confirm("確定要恢復預設 Logo 嗎？自訂 Logo 將會被移除。");
+    if (!ok) return;
+    if (savingSystemSettings) return;
+    setSavingSystemSettings(true);
+    try {
+      const res = await fetch("/api/admin/system-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ site_logo_url: "" }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        settings?: Partial<Record<keyof SystemSettingsForm, { value: string }>>;
+      };
+      if (!res.ok) throw new Error(data.error || "恢復預設 Logo 失敗");
+      setSystemSettings((prev) => ({ ...prev, site_logo_url: "" }));
+      setLogoPreviewUrl("");
+      try {
+        const logoCtx = (window as unknown as { __daydaypetLogoUpdate?: (u: string) => void });
+        if (typeof logoCtx.__daydaypetLogoUpdate === "function") {
+          logoCtx.__daydaypetLogoUpdate("");
+        }
+      } catch {
+        /* ignore */
+      }
+      showToast("✅ 已恢復預設 Logo", "success");
+    } catch (err) {
+      const msg = err instanceof Error && err.message ? err.message : "恢復預設 Logo 失敗";
+      showToast(msg);
+    } finally {
+      setSavingSystemSettings(false);
+    }
+  };
+
   const saveSystemSettings = async () => {
     if (savingSystemSettings) return;
     setSavingSystemSettings(true);
@@ -2789,6 +2924,8 @@ export default function AdminDashboardPage() {
         throw new Error(data.error || "儲存系統設定失敗");
       }
       if (data.settings) {
+        const nextLogoUrl =
+          data.settings.site_logo_url?.value ?? systemSettings.site_logo_url;
         setSystemSettings({
           admin_whatsapp_number:
             data.settings.admin_whatsapp_number?.value ?? systemSettings.admin_whatsapp_number,
@@ -2796,7 +2933,18 @@ export default function AdminDashboardPage() {
             data.settings.template_admin_notification?.value ?? systemSettings.template_admin_notification,
           template_citizen_approved:
             data.settings.template_citizen_approved?.value ?? systemSettings.template_citizen_approved,
+          site_logo_url: nextLogoUrl,
         });
+        const normalizedLogoUrl = nextLogoUrl.trim();
+        setLogoPreviewUrl(normalizedLogoUrl);
+        try {
+          const logoCtx = (window as unknown as { __daydaypetLogoUpdate?: (u: string) => void });
+          if (typeof logoCtx.__daydaypetLogoUpdate === "function") {
+            logoCtx.__daydaypetLogoUpdate(normalizedLogoUrl);
+          }
+        } catch {
+          /* ignore */
+        }
       }
       showToast("✅ 系統設定已更新", "success");
     } catch (error) {
@@ -2861,6 +3009,145 @@ export default function AdminDashboardPage() {
               : "lg:col-span-12",
           ].join(" ")}
         >
+          <div
+            className={[
+              activeDashboardTab === "system" ? "" : "hidden",
+              "mb-4 rounded-3xl bg-white p-6 shadow-xl ring-1 ring-black/5",
+            ].join(" ")}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-base font-black text-slate-900">🖼️ 網站 Logo 設定</div>
+                <div className="mt-1 text-xs font-semibold text-slate-500">
+                  上傳自訂 Logo，全站 Header（SOS 地圖與寵物指南頁）會自動同步更新。
+                  支援 PNG / JPG / SVG / WEBP，建議解析度 512×512 以上。
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.refresh()}
+                className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-900"
+              >
+                重新整理
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-5 md:grid-cols-[1fr_auto] md:items-start">
+              <div className="space-y-4">
+                <div>
+                  <div className="mb-2 text-sm font-bold text-slate-700">圖片上傳</div>
+                  <label className="flex">
+                    <span
+                      className={[
+                        "inline-flex cursor-pointer items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black text-white transition",
+                        uploadingLogo ? "cursor-not-allowed bg-slate-400" : "bg-slate-900 hover:bg-slate-800",
+                      ].join(" ")}
+                    >
+                      <span>📤</span>
+                      <span>{uploadingLogo ? "上傳中…" : "選擇圖片並上傳"}</span>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept="image/png,image/jpeg,image/jpg,image/webp,image/svg+xml"
+                        disabled={uploadingLogo}
+                        onChange={(e) => void handleLogoFileSelect(e.target.files ?? undefined)}
+                      />
+                    </span>
+                  </label>
+                  <div className="mt-2 text-[11px] font-semibold text-slate-500">
+                    允許格式：PNG、JPG、SVG、WEBP；單一檔案上限 5MB。
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => void handleSaveLogoOnly()}
+                    disabled={savingSystemSettings || uploadingLogo || loadingSystemSettings}
+                    className={[
+                      "rounded-2xl px-5 py-3 text-sm font-black text-white transition",
+                      savingSystemSettings || uploadingLogo || loadingSystemSettings
+                        ? "cursor-not-allowed bg-slate-400"
+                        : "bg-emerald-600 hover:bg-emerald-700",
+                    ].join(" ")}
+                  >
+                    💾 {savingSystemSettings ? "儲存中…" : "儲存 Logo"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleResetLogoToDefault()}
+                    disabled={savingSystemSettings || uploadingLogo || loadingSystemSettings}
+                    className={[
+                      "rounded-2xl px-5 py-3 text-sm font-black transition ring-1",
+                      savingSystemSettings || uploadingLogo || loadingSystemSettings
+                        ? "cursor-not-allowed bg-slate-100 text-slate-400 ring-slate-200"
+                        : "bg-white text-slate-900 ring-slate-200 hover:bg-slate-50",
+                    ].join(" ")}
+                  >
+                    ↺ 恢復預設 Logo
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <div className="mb-2 text-sm font-bold text-slate-700">即時預覽（Live Preview）</div>
+                <div className="flex w-[260px] flex-col gap-3 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
+                  <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+                    <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      手機 Header
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <span className="absolute inset-0 flex items-center justify-center text-sm font-black text-slate-700">
+                          日
+                        </span>
+                        <img
+                          src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
+                          alt="Logo Preview"
+                          className="relative z-10 h-full w-full object-contain"
+                          onError={(event) => {
+                            event.currentTarget.style.display = "none";
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1 truncate text-sm font-black text-slate-900">日日寵</div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl bg-white p-4 ring-1 ring-slate-200">
+                    <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                      桌面 Header
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+                        <span className="absolute inset-0 flex items-center justify-center text-sm font-black text-slate-700">
+                          日
+                        </span>
+                        <img
+                          src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
+                          alt="Logo Preview"
+                          className="relative z-10 h-full w-full object-contain"
+                          onError={(event) => {
+                            event.currentTarget.style.display = "none";
+                          }}
+                        />
+                      </div>
+                      <div className="truncate text-lg font-black tracking-tight text-slate-900">
+                        日日寵 DayDayPet
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="text-[11px] font-semibold text-slate-500">
+                    {(logoPreviewUrl || systemSettings.site_logo_url)
+                      ? "使用自訂 Logo"
+                      : "使用預設 Logo (/logo.png)"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <div
             className={[
               activeDashboardTab === "system" ? "" : "hidden",
