@@ -3094,30 +3094,32 @@ export default function AdminDashboardPage() {
                 <div className="flex w-[440px] flex-col gap-5 rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200">
                   <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
                     <div className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      手機 Header · 單層三欄（h-[112px]｜左 Logo h-[96px] 貼滿 · 中 SOS+指南絕對居中 · 右 功能）
+                      手機 Header · 響應式兩列（Row1: Logo h-10 + 右功能 · Row2: SOS+指南 居中）
                     </div>
-                    <div className="relative flex h-[112px] items-center justify-between px-4 min-h-[112px] border-b border-gray-100">
-                      <div className="flex items-center justify-start p-0 my-0">
-                        <div className="relative flex shrink-0 items-center justify-center overflow-visible p-0 my-0">
-                          <img
-                            src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
-                            alt="日日寵"
-                            className="h-[96px] w-auto object-contain max-w-none"
-                            onError={(event) => {
-                              event.currentTarget.style.display = "none";
-                            }}
-                          />
+                    <div className="w-full bg-white border-b border-gray-100 flex flex-col items-center justify-between px-3 py-2 relative">
+                      <div className="flex justify-between items-center w-full">
+                        <div className="flex items-center justify-start p-0 my-0">
+                          <div className="relative flex shrink-0 items-center justify-center overflow-visible p-0 my-0">
+                            <img
+                              src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
+                              alt="日日寵"
+                              className="h-10 sm:h-12 w-auto object-contain max-w-none"
+                              onError={(event) => {
+                                event.currentTarget.style.display = "none";
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-end gap-2">
+                          <div className="h-10 w-10 rounded-2xl bg-slate-100 ring-1 ring-slate-200" />
+                          <div className="h-10 w-10 rounded-2xl bg-slate-900 ring-1 ring-slate-900/10" />
                         </div>
                       </div>
-                      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+                      <div className="flex items-center justify-center gap-2 mt-2 z-10">
                         <div className="grid grid-cols-2 rounded-xl bg-slate-100 p-1">
                           <div className="rounded-lg bg-red-600 px-3 py-2 text-center text-xs font-black text-white shadow">SOS</div>
                           <div className="rounded-lg px-3 py-2 text-center text-xs font-black text-slate-700">指南</div>
                         </div>
-                      </div>
-                      <div className="flex items-center justify-end gap-2">
-                        <div className="h-10 w-10 rounded-2xl bg-slate-100 ring-1 ring-slate-200" />
-                        <div className="h-10 w-10 rounded-2xl bg-slate-900 ring-1 ring-slate-900/10" />
                       </div>
                     </div>
                     <div className="relative h-16 bg-gradient-to-br from-sky-100 via-emerald-50 to-amber-50" />
@@ -3125,22 +3127,22 @@ export default function AdminDashboardPage() {
 
                   <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
                     <div className="px-6 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      桌面 Header · 單層三欄（h-[128px]｜左 Logo md:h-[112px] 貼滿 · 中 SOS+指南大按鈕絕對居中 · 右 功能）
+                      桌面 Header · 單列三欄（h-28｜左 Logo md:h-24 大氣 · 中 SOS+指南絕對居中 · 右 功能）
                     </div>
-                    <div className="relative flex h-[128px] items-center justify-between px-6 min-h-[128px] border-b border-gray-100">
+                    <div className="w-full bg-white border-b border-gray-100 flex items-center justify-between md:px-6 relative md:h-28">
                       <div className="flex items-center justify-start p-0 my-0">
                         <div className="relative flex shrink-0 items-center justify-center overflow-visible p-0 my-0">
                           <img
                             src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
                             alt="日日寵"
-                            className="h-[96px] w-auto object-contain max-w-none md:h-[112px]"
+                            className="md:h-24 w-auto object-contain max-w-none md:max-w-none"
                             onError={(event) => {
                               event.currentTarget.style.display = "none";
                             }}
                           />
                         </div>
                       </div>
-                      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+                      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex items-center justify-center gap-3">
                         <div className="grid grid-cols-2 rounded-2xl bg-slate-100 p-1">
                           <div className="rounded-2xl bg-red-600 px-4 py-2.5 text-center text-sm font-black text-white shadow">🚨 SOS 尋寵地圖</div>
                           <div className="rounded-2xl px-4 py-2.5 text-center text-sm font-black text-slate-700">🐾 香港寵物指南</div>
@@ -3156,8 +3158,8 @@ export default function AdminDashboardPage() {
 
                   <div className="text-[11px] font-semibold text-slate-500">
                     {(logoPreviewUrl || systemSettings.site_logo_url)
-                      ? "使用自訂 Logo（尺寸 h-[96px] / md:h-[112px]，112px/128px Header 垂直貼滿極限放大）"
-                      : "使用預設 Logo (/logo.png)（尺寸 h-[96px] / md:h-[112px]，左對齊；中間按鈕絕對居中）"}
+                      ? "手機：Logo h-10/sm:h-12 + 兩列佈局防重疊｜桌面：md:h-24 大 Logo + SOS/指南絕對居中"
+                      : "手機：Logo h-10/sm:h-12 + 兩列佈局防重疊｜桌面：md:h-24 大 Logo + SOS/指南絕對居中"}
                   </div>
                 </div>
               </div>
