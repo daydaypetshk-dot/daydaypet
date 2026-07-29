@@ -3091,20 +3091,21 @@ export default function AdminDashboardPage() {
 
               <div>
                 <div className="mb-2 text-sm font-bold text-slate-700">即時預覽（Live Preview）</div>
-                <div className="flex w-[380px] flex-col gap-5 rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200">
+                <div className="flex w-[400px] flex-col gap-5 rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200">
                   <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
-                    <div className="border-b border-slate-200 bg-white px-4 py-3">
-                      <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                        手機 Header · 橫向圖文拆分（Logo h-10）
+                    <div className="border-b border-slate-200 bg-white">
+                      <div className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        手機 Header · 雙層（Row 1: Logo h-20 居中｜Row 2: SOS/指南 居中）
                       </div>
-                      <div className="relative flex min-h-[72px] items-center gap-2 pl-4 overflow-visible">
-                        <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex flex-col gap-0">
+                        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 py-3 px-4">
+                          <div />
                           <div className="relative flex shrink-0 items-center justify-center overflow-visible">
-                            <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-lg font-black text-slate-700 opacity-0">日</span>
+                            <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-3xl font-black text-slate-700 opacity-0">日</span>
                             <img
                               src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
                               alt="日日寵"
-                              className="relative z-10 h-10 w-auto object-contain max-w-none"
+                              className="relative z-10 h-20 w-auto object-contain max-w-none"
                               onError={(event) => {
                                 event.currentTarget.style.display = "none";
                                 const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
@@ -3112,9 +3113,15 @@ export default function AdminDashboardPage() {
                               }}
                             />
                           </div>
-                          <div className="flex min-w-0 items-baseline">
-                            <span className="truncate text-xl font-bold tracking-wide text-gray-900">日日寵</span>
-                            <span className="ml-1.5 shrink-0 text-lg font-extrabold text-emerald-600">DayDayPet</span>
+                          <div className="flex items-center justify-end gap-2">
+                            <div className="h-10 w-10 rounded-2xl bg-slate-100 ring-1 ring-slate-200" />
+                            <div className="h-10 w-10 rounded-2xl bg-slate-900 ring-1 ring-slate-900/10" />
+                          </div>
+                        </div>
+                        <div className="flex justify-center items-center gap-3 mt-2 pt-2 px-4 pb-3 border-t border-gray-100/50">
+                          <div className="grid grid-cols-2 rounded-xl bg-slate-100 p-1">
+                            <div className="rounded-lg bg-red-600 px-3 py-2 text-center text-xs font-black text-white shadow">SOS</div>
+                            <div className="rounded-lg px-3 py-2 text-center text-xs font-black text-slate-700">指南</div>
                           </div>
                         </div>
                       </div>
@@ -3123,18 +3130,19 @@ export default function AdminDashboardPage() {
                   </div>
 
                   <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
-                    <div className="border-b border-slate-200 bg-white px-6 py-3">
-                      <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                        桌面 Header · 橫向圖文拆分（Logo h-10 md:h-12）
+                    <div className="border-b border-slate-200 bg-white">
+                      <div className="px-6 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        桌面 Header · 雙層（Row 1: Logo h-24 居中｜Row 2: 大按鈕 居中）
                       </div>
-                      <div className="relative flex min-h-[80px] items-center justify-start pl-4 overflow-visible">
-                        <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex flex-col gap-0 py-3 px-4">
+                        <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4">
+                          <div />
                           <div className="relative flex shrink-0 items-center justify-center overflow-visible">
-                            <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-2xl font-black text-slate-700 opacity-0">日</span>
+                            <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-5xl font-black text-slate-700 opacity-0">日</span>
                             <img
                               src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
                               alt="日日寵"
-                              className="relative z-10 h-10 w-auto object-contain max-w-none md:h-12"
+                              className="relative z-10 h-20 w-auto object-contain max-w-none md:h-24"
                               onError={(event) => {
                                 event.currentTarget.style.display = "none";
                                 const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
@@ -3142,9 +3150,15 @@ export default function AdminDashboardPage() {
                               }}
                             />
                           </div>
-                          <div className="flex min-w-0 items-baseline">
-                            <span className="truncate text-xl font-bold tracking-wide text-gray-900 md:text-2xl">日日寵</span>
-                            <span className="ml-1.5 shrink-0 text-lg font-extrabold text-emerald-600 md:text-xl">DayDayPet</span>
+                          <div className="flex items-center justify-end gap-2">
+                            <div className="h-10 rounded-2xl bg-slate-100 px-3 ring-1 ring-slate-200 w-[160px]" />
+                            <div className="h-10 rounded-2xl bg-slate-100 px-2.5 ring-1 ring-slate-200 w-[120px]" />
+                          </div>
+                        </div>
+                        <div className="flex justify-center items-center gap-3 mt-2 pt-2 border-t border-gray-100/50">
+                          <div className="grid grid-cols-2 rounded-2xl bg-slate-100 p-1">
+                            <div className="rounded-2xl bg-red-600 px-4 py-3 text-center text-sm font-black text-white shadow">🚨 SOS 尋寵地圖</div>
+                            <div className="rounded-2xl px-4 py-3 text-center text-sm font-black text-slate-700">🐾 香港寵物指南</div>
                           </div>
                         </div>
                       </div>
@@ -3154,8 +3168,8 @@ export default function AdminDashboardPage() {
 
                   <div className="text-[11px] font-semibold text-slate-500">
                     {(logoPreviewUrl || systemSettings.site_logo_url)
-                      ? "使用自訂 Logo（展現圖案細節）"
-                      : "使用預設 Logo (/logo.png)（文字以 HTML span 提供清晰度）"}
+                      ? "使用自訂 Logo（圖片尺寸 h-20/h-24，圖案與字體清晰可見）"
+                      : "使用預設 Logo (/logo.png)（圖片尺寸 h-20/h-24，完整顯示 Logo 圖案與字樣）"}
                   </div>
                 </div>
               </div>

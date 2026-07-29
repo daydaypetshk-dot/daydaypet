@@ -3205,14 +3205,15 @@ export default function Home() {
       <div className="pointer-events-none fixed inset-x-0 top-0 z-[1400] border-b border-gray-200 bg-white shadow-sm pt-[env(safe-area-inset-top)] md:pt-0">
         <div ref={mobileHeaderRef} className="pointer-events-auto">
           <div className="px-3 md:px-6 py-0.5 md:py-1">
-            <div className="flex min-h-[72px] items-center gap-2 pl-4 md:hidden">
-              <div className="flex min-w-0 items-center gap-3">
+            <div className="flex flex-col gap-0 md:hidden">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 py-3 px-4">
+                <div />
                 <div className="relative flex shrink-0 items-center justify-center overflow-visible">
-                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-lg font-black text-slate-700 opacity-0">日</span>
+                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-3xl font-black text-slate-700 opacity-0">日</span>
                   <img
                     src={effectiveLogoUrl}
                     alt="日日寵"
-                    className="relative z-10 h-10 w-auto object-contain max-w-none"
+                    className="relative z-10 h-20 w-auto object-contain max-w-none"
                     loading="eager"
                     onError={(event) => {
                       event.currentTarget.style.display = "none";
@@ -3225,13 +3226,78 @@ export default function Home() {
                     }}
                   />
                 </div>
-                <div className="flex min-w-0 items-baseline">
-                  <span className="truncate text-xl font-bold tracking-wide text-gray-900">日日寵</span>
-                  <span className="ml-1.5 shrink-0 text-lg font-extrabold text-emerald-600">DayDayPet</span>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotificationPanelOpen((p) => !p);
+                      setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+                      if (isLoggedIn) {
+                        void fetchAppNotifications();
+                      }
+                    }}
+                    className="relative inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200/80"
+                  >
+                    <span className="text-base">🔔</span>
+                    {unreadCount > 0 ? (
+                      <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-black text-white">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    ) : null}
+                  </button>
+
+                  {!isLoggedIn ? (
+                    <button
+                      type="button"
+                      onClick={() => setAuthModalOpen(true)}
+                      className="h-10 w-10 rounded-2xl bg-slate-900 text-xs font-black text-white shadow-sm ring-1 ring-slate-900/10"
+                      aria-label="登入或註冊"
+                    >
+                      <span>👤</span>
+                    </button>
+                  ) : (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setAccountMenuOpen((prev) => !prev)}
+                        className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-sm font-black text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200/80"
+                      >
+                        {currentUserAvatar ? (
+                          <img
+                            src={currentUserAvatar}
+                            alt={currentUserLabel}
+                            className="h-8 w-8 rounded-full object-cover ring-2 ring-white"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-xs font-black text-slate-700">
+                            {currentUserLabel.slice(0, 1).toUpperCase()}
+                          </div>
+                        )}
+                      </button>
+                      {accountMenuOpen ? (
+                        <div className="absolute right-0 top-12 z-[1500] w-48 overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
+                          <div className="border-b border-slate-100 px-4 py-3">
+                            <div className="text-xs font-black text-slate-900">{currentUserLabel}</div>
+                            <div className="mt-1 truncate text-[11px] font-semibold text-slate-500">
+                              {currentUser?.email || "已登入會員"}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void handleSignOut()}
+                            className="w-full px-4 py-3 text-left text-sm font-black text-slate-900 hover:bg-slate-50"
+                          >
+                            🚪 登出帳號
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div className="flex-1">
+              <div className="flex justify-center items-center gap-3 mt-2 pt-2 px-4 pb-3 border-t border-gray-100/50">
                 <div className={["grid rounded-xl bg-slate-100 p-1", SOS_ENABLED ? "grid-cols-2" : "grid-cols-1"].join(" ")}>
                   <button
                     type="button"
@@ -3257,107 +3323,103 @@ export default function Home() {
                   ) : null}
                 </div>
               </div>
-
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNotificationPanelOpen((p) => !p);
-                    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
-                    if (isLoggedIn) {
-                      void fetchAppNotifications();
-                    }
-                  }}
-                  className="relative inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200/80"
-                >
-                  <span className="text-base">🔔</span>
-                  {unreadCount > 0 ? (
-                    <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-black text-white">
-                      {unreadCount > 99 ? "99+" : unreadCount}
-                    </span>
-                  ) : null}
-                </button>
-
-                {!isLoggedIn ? (
-                  <button
-                    type="button"
-                    onClick={() => setAuthModalOpen(true)}
-                    className="h-10 w-10 rounded-2xl bg-slate-900 text-xs font-black text-white shadow-sm ring-1 ring-slate-900/10"
-                    aria-label="登入或註冊"
-                  >
-                    <span>👤</span>
-                  </button>
-                ) : (
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setAccountMenuOpen((prev) => !prev)}
-                      className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-sm font-black text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200/80"
-                    >
-                      {currentUserAvatar ? (
-                        <img
-                          src={currentUserAvatar}
-                          alt={currentUserLabel}
-                          className="h-8 w-8 rounded-full object-cover ring-2 ring-white"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-xs font-black text-slate-700">
-                          {currentUserLabel.slice(0, 1).toUpperCase()}
-                        </div>
-                      )}
-                    </button>
-                    {accountMenuOpen ? (
-                      <div className="absolute right-0 top-12 z-[1500] w-48 overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
-                        <div className="border-b border-slate-100 px-4 py-3">
-                          <div className="text-xs font-black text-slate-900">{currentUserLabel}</div>
-                          <div className="mt-1 truncate text-[11px] font-semibold text-slate-500">
-                            {currentUser?.email || "已登入會員"}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => void handleSignOut()}
-                          className="w-full px-4 py-3 text-left text-sm font-black text-slate-900 hover:bg-slate-50"
-                        >
-                          🚪 登出帳號
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                )}
-              </div>
             </div>
 
-            <div className="hidden min-h-[72px] items-center md:grid md:min-h-[80px] md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center md:gap-4">
-              <div className="flex min-w-0 items-center justify-start pl-4">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="relative flex shrink-0 items-center justify-center overflow-visible">
-                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-2xl font-black text-slate-700 opacity-0">日</span>
-                    <img
-                      src={effectiveLogoUrl}
-                      alt="日日寵"
-                      className="relative z-10 h-10 w-auto object-contain max-w-none md:h-12"
-                      loading="eager"
-                      onError={(event) => {
-                        event.currentTarget.style.display = "none";
-                        const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
-                        if (fallback) fallback.style.opacity = "1";
-                      }}
-                      onLoad={(event) => {
-                        const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
-                        if (fallback) fallback.style.opacity = "0";
-                      }}
-                    />
-                  </div>
-                  <div className="flex min-w-0 items-baseline">
-                    <span className="truncate text-xl font-bold tracking-wide text-gray-900 md:text-2xl">日日寵</span>
-                    <span className="ml-1.5 shrink-0 text-lg font-extrabold text-emerald-600 md:text-xl">DayDayPet</span>
-                  </div>
+            <div className="hidden flex-col gap-0 md:flex py-3 px-4">
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-4">
+                <div />
+                <div className="relative flex shrink-0 items-center justify-center overflow-visible">
+                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-5xl font-black text-slate-700 opacity-0">日</span>
+                  <img
+                    src={effectiveLogoUrl}
+                    alt="日日寵"
+                    className="relative z-10 h-20 w-auto object-contain max-w-none md:h-24"
+                    loading="eager"
+                    onError={(event) => {
+                      event.currentTarget.style.display = "none";
+                      const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
+                      if (fallback) fallback.style.opacity = "1";
+                    }}
+                    onLoad={(event) => {
+                      const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
+                      if (fallback) fallback.style.opacity = "0";
+                    }}
+                  />
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNotificationPanelOpen((p) => !p);
+                      setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
+                      if (isLoggedIn) {
+                        void fetchAppNotifications();
+                      }
+                    }}
+                    className="relative inline-flex max-w-[250px] items-center gap-2 rounded-2xl bg-slate-100 px-3 py-2.5 text-left text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200/80"
+                  >
+                    <span className="text-base">🔔</span>
+                    <span className="truncate text-xs font-black">{navbarNotificationControlLabel}</span>
+                    {unreadCount > 0 ? (
+                      <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-black text-white">
+                        {unreadCount > 99 ? "99+" : unreadCount}
+                      </span>
+                    ) : null}
+                  </button>
+
+                  {!isLoggedIn ? (
+                    <button
+                      type="button"
+                      onClick={() => setAuthModalOpen(true)}
+                      className="rounded-2xl bg-slate-900 px-3 py-2.5 text-sm font-black text-white shadow-sm ring-1 ring-slate-900/10"
+                      aria-label="登入或註冊"
+                    >
+                      👤 帳號
+                    </button>
+                  ) : (
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setAccountMenuOpen((prev) => !prev)}
+                        className="flex items-center gap-2 rounded-2xl bg-slate-100 px-2.5 py-2 text-sm font-black text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200/80"
+                      >
+                        {currentUserAvatar ? (
+                          <img
+                            src={currentUserAvatar}
+                            alt={currentUserLabel}
+                            className="h-8 w-8 rounded-full object-cover ring-2 ring-white"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-xs font-black text-slate-700">
+                            {currentUserLabel.slice(0, 1).toUpperCase()}
+                          </div>
+                        )}
+                        <span className="max-w-[96px] truncate text-xs font-black text-slate-800">{currentUserLabel}</span>
+                      </button>
+                      {accountMenuOpen ? (
+                        <div className="absolute right-0 top-12 z-[1500] w-48 overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
+                          <div className="border-b border-slate-100 px-4 py-3">
+                            <div className="text-xs font-black text-slate-900">{currentUserLabel}</div>
+                            <div className="mt-1 truncate text-[11px] font-semibold text-slate-500">
+                              {currentUser?.email || "已登入會員"}
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void handleSignOut()}
+                            className="w-full px-4 py-3 text-left text-sm font-black text-slate-900 hover:bg-slate-50"
+                          >
+                            🚪 登出帳號
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              <div>
+              <div className="flex justify-center items-center gap-3 mt-2 pt-2 border-t border-gray-100/50">
                 <div className={["grid rounded-2xl bg-slate-100 p-1", SOS_ENABLED ? "grid-cols-2" : "grid-cols-1"].join(" ")}>
                   <button
                     type="button"
@@ -3382,78 +3444,6 @@ export default function Home() {
                     </button>
                   ) : null}
                 </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNotificationPanelOpen((p) => !p);
-                    setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
-                    if (isLoggedIn) {
-                      void fetchAppNotifications();
-                    }
-                  }}
-                  className="relative inline-flex max-w-[250px] items-center gap-2 rounded-2xl bg-slate-100 px-3 py-2.5 text-left text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200/80"
-                >
-                  <span className="text-base">🔔</span>
-                  <span className="truncate text-xs font-black">{navbarNotificationControlLabel}</span>
-                  {unreadCount > 0 ? (
-                    <span className="absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-black text-white">
-                      {unreadCount > 99 ? "99+" : unreadCount}
-                    </span>
-                  ) : null}
-                </button>
-
-                {!isLoggedIn ? (
-                  <button
-                    type="button"
-                    onClick={() => setAuthModalOpen(true)}
-                    className="rounded-2xl bg-slate-900 px-3 py-2.5 text-sm font-black text-white shadow-sm ring-1 ring-slate-900/10"
-                    aria-label="登入或註冊"
-                  >
-                    👤 帳號
-                  </button>
-                ) : (
-                  <div className="relative">
-                    <button
-                      type="button"
-                      onClick={() => setAccountMenuOpen((prev) => !prev)}
-                      className="flex items-center gap-2 rounded-2xl bg-slate-100 px-2.5 py-2 text-sm font-black text-slate-800 ring-1 ring-slate-200 transition hover:bg-slate-200/80"
-                    >
-                      {currentUserAvatar ? (
-                        <img
-                          src={currentUserAvatar}
-                          alt={currentUserLabel}
-                          className="h-8 w-8 rounded-full object-cover ring-2 ring-white"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white text-xs font-black text-slate-700">
-                          {currentUserLabel.slice(0, 1).toUpperCase()}
-                        </div>
-                      )}
-                      <span className="max-w-[96px] truncate text-xs font-black text-slate-800">{currentUserLabel}</span>
-                    </button>
-                    {accountMenuOpen ? (
-                      <div className="absolute right-0 top-12 z-[1500] w-48 overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
-                        <div className="border-b border-slate-100 px-4 py-3">
-                          <div className="text-xs font-black text-slate-900">{currentUserLabel}</div>
-                          <div className="mt-1 truncate text-[11px] font-semibold text-slate-500">
-                            {currentUser?.email || "已登入會員"}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => void handleSignOut()}
-                          className="w-full px-4 py-3 text-left text-sm font-black text-slate-900 hover:bg-slate-50"
-                        >
-                          🚪 登出帳號
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                )}
               </div>
             </div>
           </div>
