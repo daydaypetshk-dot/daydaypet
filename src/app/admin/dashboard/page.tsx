@@ -3091,19 +3091,19 @@ export default function AdminDashboardPage() {
 
               <div>
                 <div className="mb-2 text-sm font-bold text-slate-700">即時預覽（Live Preview）</div>
-                <div className="flex w-[360px] flex-col gap-5 rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200">
+                <div className="flex w-[380px] flex-col gap-5 rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200">
                   <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
                     <div className="border-b border-slate-200 bg-white px-4 py-3">
                       <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                        手機 Header · 懸浮下突（h-20 = 80px，translate-y-4）
+                        手機 Header（h-10 = 40px，收斂不擠壓按鈕）
                       </div>
                       <div className="relative flex min-h-[72px] items-center overflow-visible">
-                        <div className="relative z-50 flex shrink-0 items-end justify-start overflow-visible px-2">
-                          <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xl font-black text-slate-700 opacity-0">日</span>
+                        <div className="relative flex shrink-0 items-center justify-center overflow-visible px-2">
+                          <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-lg font-black text-slate-700 opacity-0">日</span>
                           <img
                             src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
                             alt="日日寵"
-                            className="relative z-[1600] h-20 translate-y-4 w-auto object-contain max-w-none drop-shadow-xl"
+                            className="relative z-10 h-10 w-auto object-contain max-w-none"
                             onError={(event) => {
                               event.currentTarget.style.display = "none";
                               const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
@@ -3113,37 +3113,37 @@ export default function AdminDashboardPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="relative h-20 bg-gradient-to-br from-sky-100 via-emerald-50 to-amber-50">
-                      <div className="absolute inset-x-0 bottom-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                        ← 凸出區域（Logo 下半部懸掛在 Header 邊框外）
-                      </div>
-                    </div>
+                    <div className="relative h-16 bg-gradient-to-br from-sky-100 via-emerald-50 to-amber-50" />
                   </div>
 
-                  <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
-                    <div className="border-b border-slate-200 bg-white px-5 py-3">
-                      <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                        桌面 Header · 懸浮下突（h-32 = 128px，translate-y-6）
-                      </div>
-                      <div className="relative flex min-h-[80px] items-center overflow-visible">
-                        <div className="relative z-50 flex shrink-0 items-end justify-start overflow-visible px-2">
-                          <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-3xl font-black text-slate-700 opacity-0">日</span>
-                          <img
-                            src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
-                            alt="日日寵"
-                            className="relative z-[1600] h-32 translate-y-6 w-auto object-contain max-w-none drop-shadow-2xl"
-                            onError={(event) => {
-                              event.currentTarget.style.display = "none";
-                              const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
-                              if (fallback) fallback.style.opacity = "1";
-                            }}
-                          />
+                  <div className="flex gap-4">
+                    <div className="w-[260px] shrink-0 overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
+                      <div className="border-b border-slate-200 bg-white/95 px-5 pt-5 pb-4 backdrop-blur">
+                        <div className="mb-4 flex justify-center">
+                          <div className="relative flex shrink-0 items-center justify-center overflow-visible">
+                            <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-4xl font-black text-slate-700 opacity-0">日</span>
+                            <img
+                              src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
+                              alt="日日寵"
+                              className="relative z-10 h-[88px] w-auto object-contain max-w-none drop-shadow-lg"
+                              onError={(event) => {
+                                event.currentTarget.style.display = "none";
+                                const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
+                                if (fallback) fallback.style.opacity = "1";
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                          🐾 附近毛孩列表
                         </div>
                       </div>
+                      <div className="relative h-24 bg-slate-50" />
                     </div>
-                    <div className="relative h-28 bg-gradient-to-br from-sky-100 via-emerald-50 to-amber-50">
-                      <div className="absolute inset-x-0 bottom-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                        ← 凸出區域（Logo 下半部懸掛於地圖之上，帶立體陰影）
+                    <div className="flex flex-1 flex-col gap-2">
+                      <div className="flex-1 rounded-xl border border-dashed border-slate-300 bg-gradient-to-br from-sky-100 via-emerald-50 to-amber-50" />
+                      <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        地圖區（Header 左側已淨空，Logo 已遷移至左側面板頂部）
                       </div>
                     </div>
                   </div>
