@@ -3204,15 +3204,15 @@ export default function Home() {
 
       <div className="pointer-events-none fixed inset-x-0 top-0 z-[1400] border-b border-gray-200 bg-white shadow-sm pt-[env(safe-area-inset-top)] md:pt-0">
         <div ref={mobileHeaderRef} className="pointer-events-auto">
-          <div className="px-3 md:px-6 md:py-3">
-            <div className="flex h-14 items-center gap-2 md:hidden">
+          <div className="px-3 md:px-6 md:py-4">
+            <div className="flex min-h-[64px] items-center gap-2 md:hidden">
               <div className="flex items-center gap-2">
-                <div className="relative max-h-12 flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-2 py-1">
+                <div className="relative flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-1.5">
                   <span className="absolute inset-0 flex items-center justify-center text-sm font-black text-slate-700">日</span>
                   <img
                     src={effectiveLogoUrl}
                     alt="日日寵 Logo"
-                    className="relative z-10 h-8 w-auto object-contain bg-white"
+                    className="relative z-10 h-10 w-auto object-contain max-w-none bg-white"
                     loading="eager"
                     onError={(event) => {
                       event.currentTarget.style.display = "none";
@@ -3319,14 +3319,14 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="hidden md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center md:gap-4">
+            <div className="hidden min-h-[64px] items-center md:grid md:min-h-[72px] md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center md:gap-4">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="relative max-h-12 flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-2.5 py-1.5">
-                  <span className="absolute inset-0 flex items-center justify-center text-sm font-black text-slate-700">日</span>
+                <div className="relative flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 py-2">
+                  <span className="absolute inset-0 flex items-center justify-center text-base font-black text-slate-700">日</span>
                   <img
                     src={effectiveLogoUrl}
                     alt="日日寵 Logo"
-                    className="relative z-10 h-10 md:h-12 w-auto object-contain bg-white"
+                    className="relative z-10 h-12 w-auto object-contain max-w-none bg-white md:h-14"
                     loading="eager"
                     onError={(event) => {
                       event.currentTarget.style.display = "none";
