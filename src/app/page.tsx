@@ -3205,9 +3205,9 @@ export default function Home() {
       <div className="pointer-events-none fixed inset-x-0 top-0 z-[1400] border-b border-gray-200 bg-white shadow-sm pt-[env(safe-area-inset-top)] md:pt-0">
         <div ref={mobileHeaderRef} className="pointer-events-auto">
           <div className="px-3 md:px-6 py-0.5 md:py-1">
-            <div className="flex min-h-[72px] items-center gap-2 md:hidden">
-              <div className="flex items-center">
-                <div className="relative flex shrink-0 items-center justify-center overflow-visible px-2">
+            <div className="flex min-h-[72px] items-center gap-2 pl-4 md:hidden">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="relative flex shrink-0 items-center justify-center overflow-visible">
                   <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-lg font-black text-slate-700 opacity-0">日</span>
                   <img
                     src={effectiveLogoUrl}
@@ -3224,6 +3224,10 @@ export default function Home() {
                       if (fallback) fallback.style.opacity = "0";
                     }}
                   />
+                </div>
+                <div className="flex min-w-0 items-baseline">
+                  <span className="truncate text-xl font-bold tracking-wide text-gray-900">日日寵</span>
+                  <span className="ml-1.5 shrink-0 text-lg font-extrabold text-emerald-600">DayDayPet</span>
                 </div>
               </div>
 
@@ -3326,7 +3330,32 @@ export default function Home() {
             </div>
 
             <div className="hidden min-h-[72px] items-center md:grid md:min-h-[80px] md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center md:gap-4">
-              <div className="flex min-w-0 items-center justify-start"></div>
+              <div className="flex min-w-0 items-center justify-start pl-4">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="relative flex shrink-0 items-center justify-center overflow-visible">
+                    <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-2xl font-black text-slate-700 opacity-0">日</span>
+                    <img
+                      src={effectiveLogoUrl}
+                      alt="日日寵"
+                      className="relative z-10 h-10 w-auto object-contain max-w-none md:h-12"
+                      loading="eager"
+                      onError={(event) => {
+                        event.currentTarget.style.display = "none";
+                        const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
+                        if (fallback) fallback.style.opacity = "1";
+                      }}
+                      onLoad={(event) => {
+                        const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
+                        if (fallback) fallback.style.opacity = "0";
+                      }}
+                    />
+                  </div>
+                  <div className="flex min-w-0 items-baseline">
+                    <span className="truncate text-xl font-bold tracking-wide text-gray-900 md:text-2xl">日日寵</span>
+                    <span className="ml-1.5 shrink-0 text-lg font-extrabold text-emerald-600 md:text-xl">DayDayPet</span>
+                  </div>
+                </div>
+              </div>
 
               <div>
                 <div className={["grid rounded-2xl bg-slate-100 p-1", SOS_ENABLED ? "grid-cols-2" : "grid-cols-1"].join(" ")}>
@@ -3583,27 +3612,7 @@ export default function Home() {
           ].join(" ")}
         >
           <div className="flex h-full flex-col border-r border-slate-200">
-            <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-5 pt-5 pb-4 backdrop-blur">
-              <div className="mb-4 flex justify-center">
-                <div className="relative flex shrink-0 items-center justify-center overflow-visible">
-                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-4xl font-black text-slate-700 opacity-0">日</span>
-                  <img
-                    src={effectiveLogoUrl}
-                    alt="日日寵"
-                    className="relative z-10 h-[88px] w-auto object-contain max-w-none drop-shadow-lg"
-                    loading="eager"
-                    onError={(event) => {
-                      event.currentTarget.style.display = "none";
-                      const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
-                      if (fallback) fallback.style.opacity = "1";
-                    }}
-                    onLoad={(event) => {
-                      const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
-                      if (fallback) fallback.style.opacity = "0";
-                    }}
-                  />
-                </div>
-              </div>
+            <div className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-5 py-4 backdrop-blur">
               <div className="text-lg font-black text-slate-900">
                 {mode === "sos" ? "🐾 附近毛孩列表" : "📖 香港寵物指南列表"}
               </div>

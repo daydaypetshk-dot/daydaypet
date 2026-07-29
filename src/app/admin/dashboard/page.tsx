@@ -3095,37 +3095,16 @@ export default function AdminDashboardPage() {
                   <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
                     <div className="border-b border-slate-200 bg-white px-4 py-3">
                       <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                        手機 Header（h-10 = 40px，收斂不擠壓按鈕）
+                        手機 Header · 橫向圖文拆分（Logo h-10）
                       </div>
-                      <div className="relative flex min-h-[72px] items-center overflow-visible">
-                        <div className="relative flex shrink-0 items-center justify-center overflow-visible px-2">
-                          <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-lg font-black text-slate-700 opacity-0">日</span>
-                          <img
-                            src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
-                            alt="日日寵"
-                            className="relative z-10 h-10 w-auto object-contain max-w-none"
-                            onError={(event) => {
-                              event.currentTarget.style.display = "none";
-                              const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
-                              if (fallback) fallback.style.opacity = "1";
-                            }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                    <div className="relative h-16 bg-gradient-to-br from-sky-100 via-emerald-50 to-amber-50" />
-                  </div>
-
-                  <div className="flex gap-4">
-                    <div className="w-[260px] shrink-0 overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
-                      <div className="border-b border-slate-200 bg-white/95 px-5 pt-5 pb-4 backdrop-blur">
-                        <div className="mb-4 flex justify-center">
+                      <div className="relative flex min-h-[72px] items-center gap-2 pl-4 overflow-visible">
+                        <div className="flex min-w-0 items-center gap-3">
                           <div className="relative flex shrink-0 items-center justify-center overflow-visible">
-                            <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-4xl font-black text-slate-700 opacity-0">日</span>
+                            <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-lg font-black text-slate-700 opacity-0">日</span>
                             <img
                               src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
                               alt="日日寵"
-                              className="relative z-10 h-[88px] w-auto object-contain max-w-none drop-shadow-lg"
+                              className="relative z-10 h-10 w-auto object-contain max-w-none"
                               onError={(event) => {
                                 event.currentTarget.style.display = "none";
                                 const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
@@ -3133,25 +3112,50 @@ export default function AdminDashboardPage() {
                               }}
                             />
                           </div>
-                        </div>
-                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                          🐾 附近毛孩列表
+                          <div className="flex min-w-0 items-baseline">
+                            <span className="truncate text-xl font-bold tracking-wide text-gray-900">日日寵</span>
+                            <span className="ml-1.5 shrink-0 text-lg font-extrabold text-emerald-600">DayDayPet</span>
+                          </div>
                         </div>
                       </div>
-                      <div className="relative h-24 bg-slate-50" />
                     </div>
-                    <div className="flex flex-1 flex-col gap-2">
-                      <div className="flex-1 rounded-xl border border-dashed border-slate-300 bg-gradient-to-br from-sky-100 via-emerald-50 to-amber-50" />
-                      <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-center text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                        地圖區（Header 左側已淨空，Logo 已遷移至左側面板頂部）
+                    <div className="relative h-16 bg-gradient-to-br from-sky-100 via-emerald-50 to-amber-50" />
+                  </div>
+
+                  <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
+                    <div className="border-b border-slate-200 bg-white px-6 py-3">
+                      <div className="mb-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                        桌面 Header · 橫向圖文拆分（Logo h-10 md:h-12）
+                      </div>
+                      <div className="relative flex min-h-[80px] items-center justify-start pl-4 overflow-visible">
+                        <div className="flex min-w-0 items-center gap-3">
+                          <div className="relative flex shrink-0 items-center justify-center overflow-visible">
+                            <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-2xl font-black text-slate-700 opacity-0">日</span>
+                            <img
+                              src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
+                              alt="日日寵"
+                              className="relative z-10 h-10 w-auto object-contain max-w-none md:h-12"
+                              onError={(event) => {
+                                event.currentTarget.style.display = "none";
+                                const fallback = event.currentTarget.previousElementSibling as HTMLElement | null;
+                                if (fallback) fallback.style.opacity = "1";
+                              }}
+                            />
+                          </div>
+                          <div className="flex min-w-0 items-baseline">
+                            <span className="truncate text-xl font-bold tracking-wide text-gray-900 md:text-2xl">日日寵</span>
+                            <span className="ml-1.5 shrink-0 text-lg font-extrabold text-emerald-600 md:text-xl">DayDayPet</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
+                    <div className="relative h-24 bg-gradient-to-br from-sky-100 via-emerald-50 to-amber-50" />
                   </div>
 
                   <div className="text-[11px] font-semibold text-slate-500">
                     {(logoPreviewUrl || systemSettings.site_logo_url)
-                      ? "使用自訂 Logo"
-                      : "使用預設 Logo (/logo.png)"}
+                      ? "使用自訂 Logo（展現圖案細節）"
+                      : "使用預設 Logo (/logo.png)（文字以 HTML span 提供清晰度）"}
                   </div>
                 </div>
               </div>
