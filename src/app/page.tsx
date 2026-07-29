@@ -3207,12 +3207,12 @@ export default function Home() {
           <div className="px-3 md:px-6 py-0.5 md:py-1">
             <div className="flex min-h-[72px] items-center gap-2 md:hidden">
               <div className="flex items-center">
-                <div className="relative flex shrink-0 items-center justify-center rounded-xl border-0 bg-transparent px-2 py-0.5">
+                <div className="relative z-50 flex shrink-0 items-end justify-start overflow-visible px-2">
                   <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-xl font-black text-slate-700 opacity-0">日</span>
                   <img
                     src={effectiveLogoUrl}
                     alt="日日寵"
-                    className="relative z-10 h-12 w-auto object-contain max-w-none"
+                    className="relative z-[1600] h-20 translate-y-4 w-auto object-contain max-w-none drop-shadow-xl"
                     loading="eager"
                     onError={(event) => {
                       event.currentTarget.style.display = "none";
@@ -3327,12 +3327,12 @@ export default function Home() {
 
             <div className="hidden min-h-[72px] items-center md:grid md:min-h-[80px] md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center md:gap-4">
               <div className="flex min-w-0 items-center">
-                <div className="relative flex shrink-0 items-center justify-center rounded-xl border-0 bg-transparent px-2 py-0.5 md:py-1">
-                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-2xl font-black text-slate-700 opacity-0">日</span>
+                <div className="relative z-50 relative flex shrink-0 items-end justify-start overflow-visible px-2">
+                  <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-3xl font-black text-slate-700 opacity-0">日</span>
                   <img
                     src={effectiveLogoUrl}
                     alt="日日寵"
-                    className="relative z-10 h-[72px] w-auto object-contain max-w-none md:h-20"
+                    className="relative z-[1600] h-32 translate-y-6 w-auto object-contain max-w-none drop-shadow-2xl md:translate-y-6"
                     loading="eager"
                     onError={(event) => {
                       event.currentTarget.style.display = "none";
