@@ -3097,14 +3097,14 @@ export default function AdminDashboardPage() {
                       手機 Header
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      <div className="relative max-h-12 flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-2 py-1">
                         <span className="absolute inset-0 flex items-center justify-center text-sm font-black text-slate-700">
                           日
                         </span>
                         <img
                           src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
                           alt="Logo Preview"
-                          className="relative z-10 h-full w-full object-contain"
+                          className="relative z-10 h-8 w-auto object-contain bg-white"
                           onError={(event) => {
                             event.currentTarget.style.display = "none";
                           }}
@@ -3119,14 +3119,14 @@ export default function AdminDashboardPage() {
                       桌面 Header
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+                      <div className="relative max-h-12 flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-2.5 py-1.5">
                         <span className="absolute inset-0 flex items-center justify-center text-sm font-black text-slate-700">
                           日
                         </span>
                         <img
                           src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
                           alt="Logo Preview"
-                          className="relative z-10 h-full w-full object-contain"
+                          className="relative z-10 h-10 w-auto object-contain bg-white md:h-12"
                           onError={(event) => {
                             event.currentTarget.style.display = "none";
                           }}

@@ -3207,12 +3207,12 @@ export default function Home() {
           <div className="px-3 md:px-6 md:py-3">
             <div className="flex h-14 items-center gap-2 md:hidden">
               <div className="flex items-center gap-2">
-                <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <div className="relative max-h-12 flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-2 py-1">
                   <span className="absolute inset-0 flex items-center justify-center text-sm font-black text-slate-700">日</span>
                   <img
                     src={effectiveLogoUrl}
                     alt="日日寵 Logo"
-                    className="relative z-10 h-full w-full object-contain"
+                    className="relative z-10 h-8 w-auto object-contain bg-white"
                     loading="eager"
                     onError={(event) => {
                       event.currentTarget.style.display = "none";
@@ -3321,12 +3321,12 @@ export default function Home() {
 
             <div className="hidden md:grid md:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] md:items-center md:gap-4">
               <div className="flex min-w-0 items-center gap-3">
-                <div className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+                <div className="relative max-h-12 flex shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white px-2.5 py-1.5">
                   <span className="absolute inset-0 flex items-center justify-center text-sm font-black text-slate-700">日</span>
                   <img
                     src={effectiveLogoUrl}
                     alt="日日寵 Logo"
-                    className="relative z-10 h-full w-full object-contain"
+                    className="relative z-10 h-10 md:h-12 w-auto object-contain bg-white"
                     loading="eager"
                     onError={(event) => {
                       event.currentTarget.style.display = "none";
