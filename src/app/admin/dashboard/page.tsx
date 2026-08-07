@@ -2425,13 +2425,20 @@ export default function AdminDashboardPage() {
     const ok = confirm("確定刪除？");
     if (!ok) return;
     try {
-      const res = await fetch(`/api/admin/pets/${encodeURIComponent(id)}`, {
+      const url = `/api/admin/pets/${encodeURIComponent(id)}`;
+      const res = await fetch(url, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        throw new Error(data.error || "刪除失敗");
+        console.error("DELETE non-ok response:", {
+          url,
+          status: res.status,
+          statusText: res.statusText,
+          body: data,
+        });
+        throw new Error(data.error || `刪除失敗 (${res.status} ${res.statusText})`);
       }
       await refreshAllBoards(tab);
       showToast("🗑️ 已刪除案件", "success");
@@ -2452,7 +2459,8 @@ export default function AdminDashboardPage() {
         pet.latitude != null && pet.longitude != null
           ? await reverseGeocodeDistrict(pet.latitude, pet.longitude)
           : null;
-      const res = await fetch(`/api/admin/pets/${encodeURIComponent(pet.id)}`, {
+      const url = `/api/admin/pets/${encodeURIComponent(pet.id)}`;
+      const res = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2462,7 +2470,13 @@ export default function AdminDashboardPage() {
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        throw new Error(data.error || "更新失敗");
+        console.error("Approve PATCH non-ok response:", {
+          url,
+          status: res.status,
+          statusText: res.statusText,
+          body: data,
+        });
+        throw new Error(data.error || `更新失敗 (${res.status} ${res.statusText})`);
       }
       await refreshAllBoards("approved");
       showToast("✅ 已批准上線", "success");
@@ -2746,14 +2760,21 @@ export default function AdminDashboardPage() {
         status: nextStatus,
       };
 
-      const res = await fetch(`/api/admin/pets/${encodeURIComponent(editingPet.id)}`, {
+      const url = `/api/admin/pets/${encodeURIComponent(editingPet.id)}`;
+      const res = await fetch(url, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updatePayload),
       });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
       if (!res.ok) {
-        throw new Error(data.error || "儲存修改失敗");
+        console.error("Edit save PATCH non-ok response:", {
+          url,
+          status: res.status,
+          statusText: res.statusText,
+          body: data,
+        });
+        throw new Error(data.error || `儲存修改失敗 (${res.status} ${res.statusText})`);
       }
 
       closeEditModal();

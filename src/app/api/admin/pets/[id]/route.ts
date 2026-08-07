@@ -14,11 +14,11 @@ import { sendWhatsAppText } from "@/lib/whatsapp/client";
 
 const SUPABASE_QUERY_TIMEOUT_MS = 10_000;
 
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const guard = await assertAdminServer();
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
-  const { id } = await ctx.params;
+  const { id } = await params;
   const petId = String(id || "").trim();
   if (!petId) {
     return NextResponse.json({ error: "Missing pet id" }, { status: 400 });
@@ -27,6 +27,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   const admin = supabaseAdmin();
   const { data, error } = await admin.from("pets").select("*").eq("id", petId).maybeSingle();
   if (error) {
+    console.error("[admin/pets/:id] GET error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   if (!data) {
@@ -38,11 +39,11 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
 
 type PatchBody = Partial<PetInsert>;
 
-export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const guard = await assertAdminServer();
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
-  const { id } = await ctx.params;
+  const { id } = await params;
   const petId = String(id || "").trim();
   if (!petId) {
     return NextResponse.json({ error: "Missing pet id" }, { status: 400 });
@@ -51,7 +52,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   let body: PatchBody;
   try {
     body = (await req.json()) as PatchBody;
-  } catch {
+  } catch (err) {
+    console.error("[admin/pets/:id] invalid JSON body:", err);
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
@@ -70,14 +72,21 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 
   console.log("[admin/pets/:id] update payload:", { petId, body, actorUserId: guard.user.id });
-  const { data: updated, error: updateError } = await withTimeout(
-    admin.from("pets").update(body).eq("id", petId).select("*").single(),
-    SUPABASE_QUERY_TIMEOUT_MS,
-    "[admin/pets/:id] update",
-  );
-  if (updateError) {
+  let updated: any = undefined;
+  try {
+    const updateResult = await withTimeout(
+      admin.from("pets").update(body).eq("id", petId).select("*").single(),
+      SUPABASE_QUERY_TIMEOUT_MS,
+      "[admin/pets/:id] update",
+    );
+    if (updateResult.error) throw updateResult.error;
+    updated = updateResult.data;
+  } catch (updateError: any) {
     console.error("[admin/pets/:id] update error:", updateError);
-    return NextResponse.json({ error: updateError.message }, { status: 400 });
+    return NextResponse.json(
+      { error: updateError?.message || "Update failed" },
+      { status: 500 },
+    );
   }
 
   const approvalTransition = existing.status !== "approved" && updated.status === "approved";
@@ -141,26 +150,30 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   return NextResponse.json({ pet: updated });
 }
 
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const guard = await assertAdminServer();
   if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
 
-  const { id } = await ctx.params;
+  const { id } = await params;
   const petId = String(id || "").trim();
   if (!petId) {
     return NextResponse.json({ error: "Missing pet id" }, { status: 400 });
   }
 
   const admin = supabaseAdmin();
-  const { error } = await withTimeout(
-    admin.from("pets").delete().eq("id", petId),
-    SUPABASE_QUERY_TIMEOUT_MS,
-    "[admin/pets/:id] delete",
-  );
-  if (error) {
-    console.error("[admin/pets/:id] delete error:", error);
-    return NextResponse.json({ error: error.message }, { status: 400 });
+  try {
+    const result = await withTimeout(
+      admin.from("pets").delete().eq("id", petId),
+      SUPABASE_QUERY_TIMEOUT_MS,
+      "[admin/pets/:id] delete",
+    );
+    if (result.error) throw result.error;
+    return NextResponse.json({ success: true });
+  } catch (err: any) {
+    console.error("DELETE /api/admin/pets/[id] error:", err);
+    return NextResponse.json(
+      { error: err?.message || "Delete failed" },
+      { status: 500 },
+    );
   }
-
-  return NextResponse.json({ ok: true });
 }
