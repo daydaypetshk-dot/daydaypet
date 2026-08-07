@@ -4889,33 +4889,34 @@ export default function Home() {
       </div>
 
       {reportModalOpen ? (
-        <div className="fixed inset-0 z-[1300] bg-black/50 backdrop-blur-sm">
-          <div className="flex min-h-full items-end justify-center p-0 sm:items-center sm:p-6">
-            <div className="relative z-50 w-full max-w-2xl max-h-[90svh] overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
+        <div
+          className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+          onClick={closeReportModal}
+        >
+          <div
+            className="relative bg-white rounded-2xl max-h-[85vh] w-full max-w-2xl overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="sticky top-0 bg-white z-20 px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">市民報料</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  免登入可先填表，表單末尾一鍵綁定會員並送審
+                </p>
+              </div>
               <button
                 type="button"
-                aria-label="關閉"
-                title="關閉"
                 onClick={closeReportModal}
-                className="absolute top-4 right-4 p-2 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-full cursor-pointer transition-colors z-10"
+                className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full cursor-pointer transition-colors"
+                title="關閉"
+                aria-label="關閉"
               >
-                ✕
+                <span className="text-xl font-bold leading-none">✕</span>
               </button>
-              <div className="sticky top-0 z-[5] border-b border-gray-100 bg-white pb-3 mb-4 flex items-center justify-between px-6 pt-14">
-                <div className="font-bold text-lg">📌 填寫報料資料</div>
-              </div>
+            </div>
 
-              <div className="px-6 pb-6">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <div className="text-xl font-black text-slate-900">市民報料</div>
-                    <div className="mt-1 text-sm font-semibold text-slate-500">
-                      免登入可先填表，表單末尾一鍵綁定會員並送審
-                    </div>
-                  </div>
-                </div>
-
-              <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="px-6 pb-6">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-5">
                 <label className="block">
                   <div className="text-sm font-bold text-slate-700">案件類型</div>
                   <select
@@ -5359,7 +5360,6 @@ export default function Home() {
                 <div className="mt-3 text-xs font-semibold leading-relaxed text-slate-500">
                   所有市民報料都會先以 pending 進後台審批，核實後才會於 🚨 SOS尋寵地圖 公開上線。
                 </div>
-              </div>
               </div>
             </div>
           </div>
