@@ -4573,6 +4573,28 @@ export default function Home() {
                           </div>
 
                           <div className="space-y-3 pb-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const url = String(selectedPet.sourceUrl || "").trim();
+                                const isValid = /^https?:\/\//i.test(url);
+                                if (isValid) {
+                                  window.open(url, "_blank", "noopener,noreferrer");
+                                  return;
+                                }
+                                showToast("此案件暫無附帶第三方原貼文連結", "error");
+                              }}
+                              disabled={!canOpenSourceHref}
+                              className={[
+                                "w-full py-2.5 px-4 rounded-xl shadow-sm transition-colors flex items-center justify-center gap-2 mb-2",
+                                canOpenSourceHref
+                                  ? "bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium cursor-pointer"
+                                  : "bg-slate-50 border border-slate-200 text-slate-400 font-medium cursor-not-allowed",
+                              ].join(" ")}
+                            >
+                              🧾 主 post / 原貼文連結
+                            </button>
+
                             <a
                               href={whatsappHref || "#"}
                               target={whatsappHref ? "_blank" : undefined}
@@ -4598,7 +4620,7 @@ export default function Home() {
                               {`WhatsApp 聯絡${contactTarget}`}
                             </a>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="grid grid-cols-2 gap-2">
                               <a
                                 href={telHref || "#"}
                                 className={[
@@ -4677,28 +4699,7 @@ export default function Home() {
                                 isQuickDownloading ? "opacity-60" : "hover:bg-orange-600",
                               ].join(" ")}
                             >
-                              {isQuickDownloading ? "⏳ 生成中…" : "📊 生成尋寵街招 PDF"}
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const url = String(selectedPet.sourceUrl || "").trim();
-                                const isValid = /^https?:\/\//i.test(url);
-                                if (isValid) {
-                                  window.open(url, "_blank", "noopener,noreferrer");
-                                  return;
-                                }
-                                showToast("此案件暫無附帶第三方原貼文連結", "error");
-                              }}
-                              className={[
-                                "w-full rounded-2xl border px-4 py-4 text-center text-sm font-black shadow-sm",
-                                canOpenSourceHref
-                                  ? "border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
-                                  : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100",
-                              ].join(" ")}
-                            >
-                              🧾 主 post / 原貼文連結
+                              {isQuickDownloading ? "⏳ 生成中…" : "📄 生成尋寵街招 PDF"}
                             </button>
                           </div>
                         </div>
