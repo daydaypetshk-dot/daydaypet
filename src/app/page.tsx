@@ -1115,6 +1115,7 @@ export default function Home() {
   const [session, setSession] = useState<Session | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportSuccessOpen, setReportSuccessOpen] = useState(false);
   const [reportForm, setReportForm] = useState<CitizenReportForm>(defaultCitizenReportForm);
   const [petBreedOptions, setPetBreedOptions] = useState<PetBreedOption[]>([]);
   const [guideCategories, setGuideCategories] = useState<GuideCategoryOption[]>([]);
@@ -1623,8 +1624,15 @@ export default function Home() {
 
   const closeReportModal = useCallback(() => {
     setReportModalOpen(false);
+    setReportSuccessOpen(false);
     setIsPickLocationMode(false);
-  }, []);
+    resetReportForm();
+  }, [resetReportForm]);
+
+  const closeReportSuccess = useCallback(() => {
+    setReportSuccessOpen(false);
+    resetReportForm();
+  }, [resetReportForm]);
 
   const openTimelineLightbox = useCallback((imageUrl: string | null | undefined) => {
     const nextUrl = String(imageUrl || "").trim();
@@ -3052,6 +3060,7 @@ export default function Home() {
       await submitCitizenReport(reportForm, freshUser);
       resetReportForm();
       closeReportModal();
+      setReportSuccessOpen(true);
       showToast("🎉 報料已成功送往後台審批，管理員核實後會立刻上線！", "success");
     } catch (err) {
       const msg = err instanceof Error && err.message ? err.message : "提交失敗";
@@ -4882,22 +4891,28 @@ export default function Home() {
       {reportModalOpen ? (
         <div className="fixed inset-0 z-[1300] bg-black/50 backdrop-blur-sm">
           <div className="flex min-h-full items-end justify-center p-0 sm:items-center sm:p-6">
-            <div className="relative z-50 w-full max-w-2xl max-h-[90svh] overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl sm:rounded-3xl">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="text-xl font-black text-slate-900">市民報料</div>
-                  <div className="mt-1 text-sm font-semibold text-slate-500">
-                    免登入可先填表，表單末尾一鍵綁定會員並送審
-                  </div>
-                </div>
+            <div className="relative z-50 w-full max-w-2xl max-h-[90svh] overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
+              <div className="sticky top-0 z-10 border-b border-gray-100 bg-white pb-3 mb-4 flex items-center justify-between px-6 pt-6">
+                <div className="font-bold text-lg">📌 填寫報料資料</div>
                 <button
                   type="button"
+                  aria-label="關閉"
                   onClick={closeReportModal}
-                  className="rounded-xl bg-slate-100 px-3 py-2 text-sm font-bold text-slate-900"
+                  className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full cursor-pointer transition-colors"
                 >
-                  關閉
+                  ✕
                 </button>
               </div>
+
+              <div className="px-6 pb-6">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <div className="text-xl font-black text-slate-900">市民報料</div>
+                    <div className="mt-1 text-sm font-semibold text-slate-500">
+                      免登入可先填表，表單末尾一鍵綁定會員並送審
+                    </div>
+                  </div>
+                </div>
 
               <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
                 <label className="block">
@@ -5344,6 +5359,30 @@ export default function Home() {
                   所有市民報料都會先以 pending 進後台審批，核實後才會於 🚨 SOS尋寵地圖 公開上線。
                 </div>
               </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {reportSuccessOpen ? (
+        <div className="fixed inset-0 z-[1350] bg-black/55 backdrop-blur-sm">
+          <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
+            <div className="relative z-50 w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl ring-1 ring-black/10 text-center">
+              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-amber-100 via-rose-100 to-sky-100 text-5xl shadow-lg">
+                🐾
+              </div>
+              <div className="mt-5 text-2xl font-black text-slate-900">報料成功！已進入審核階段</div>
+              <div className="mt-3 text-sm font-semibold leading-relaxed text-slate-600">
+                感謝您的熱心回報！為維護平台資訊準確性，管理員將於短時間內完成審核，審核通過後案件將自動顯示於地圖與最新列表中。
+              </div>
+              <button
+                type="button"
+                onClick={closeReportSuccess}
+                className="mt-7 w-full rounded-2xl bg-red-600 px-4 py-3.5 text-base font-black text-white shadow-lg transition hover:brightness-105 active:scale-[0.99]"
+              >
+                好的，我知道了
+              </button>
             </div>
           </div>
         </div>
