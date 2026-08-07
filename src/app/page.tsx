@@ -4892,16 +4892,17 @@ export default function Home() {
         <div className="fixed inset-0 z-[1300] bg-black/50 backdrop-blur-sm">
           <div className="flex min-h-full items-end justify-center p-0 sm:items-center sm:p-6">
             <div className="relative z-50 w-full max-w-2xl max-h-[90svh] overflow-y-auto rounded-t-3xl bg-white shadow-2xl sm:rounded-3xl">
-              <div className="sticky top-0 z-10 border-b border-gray-100 bg-white pb-3 mb-4 flex items-center justify-between px-6 pt-6">
+              <button
+                type="button"
+                aria-label="關閉"
+                title="關閉"
+                onClick={closeReportModal}
+                className="absolute top-4 right-4 p-2 text-gray-500 hover:text-gray-800 hover:bg-gray-100 rounded-full cursor-pointer transition-colors z-10"
+              >
+                ✕
+              </button>
+              <div className="sticky top-0 z-[5] border-b border-gray-100 bg-white pb-3 mb-4 flex items-center justify-between px-6 pt-14">
                 <div className="font-bold text-lg">📌 填寫報料資料</div>
-                <button
-                  type="button"
-                  aria-label="關閉"
-                  onClick={closeReportModal}
-                  className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full cursor-pointer transition-colors"
-                >
-                  ✕
-                </button>
               </div>
 
               <div className="px-6 pb-6">
