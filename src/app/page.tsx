@@ -3246,17 +3246,16 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-1.5 sm:gap-3">
+            <div className="flex items-center justify-end gap-1 sm:gap-2">
               <button
                 type="button"
                 onClick={() => setMode("sos")}
                 className={[
-                  "inline-flex items-center justify-center rounded-full px-2.5 py-1 text-center text-xs font-black transition shadow-sm md:hidden",
+                  "inline-flex items-center justify-center whitespace-nowrap rounded-full px-2 py-1 text-center text-[11px] font-black transition shadow-sm sm:text-xs md:hidden md:text-sm md:px-3 md:py-1.5",
                   mode === "sos" ? "bg-red-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200/80 ring-1 ring-slate-200",
                 ].join(" ")}
               >
-                <span className="sm:hidden">🚨 SOS</span>
-                <span className="hidden sm:inline">🚨 SOS 尋寵地圖</span>
+                🚨 SOS 尋寵地圖
               </button>
 
               {SOS_ENABLED ? (
@@ -3264,12 +3263,11 @@ export default function Home() {
                   type="button"
                   onClick={() => setMode("life")}
                   className={[
-                    "inline-flex items-center justify-center rounded-full px-2.5 py-1 text-center text-xs font-black transition shadow-sm md:hidden",
+                    "inline-flex items-center justify-center whitespace-nowrap rounded-full px-2 py-1 text-center text-[11px] font-black transition shadow-sm sm:text-xs md:hidden md:text-sm md:px-3 md:py-1.5",
                     mode === "life" ? "bg-emerald-600 text-white" : "bg-slate-100 text-slate-700 hover:bg-slate-200/80 ring-1 ring-slate-200",
                   ].join(" ")}
                 >
-                  <span className="sm:hidden">🐾 指南</span>
-                  <span className="hidden sm:inline">🐾 香港寵物指南</span>
+                  🐾 香港寵物指南
                 </button>
               ) : null}
 

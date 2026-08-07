@@ -3195,14 +3195,12 @@ export default function AdminDashboardPage() {
                           />
                         </div>
                       </div>
-                      <div className="flex items-center justify-end gap-1.5 sm:gap-3">
-                        <div className="inline-flex items-center justify-center rounded-full bg-red-600 px-2.5 py-1 text-center text-xs font-black text-white shadow-sm">
-                          <span className="sm:hidden">🚨 SOS</span>
-                          <span className="hidden sm:inline">🚨 SOS 尋寵地圖</span>
+                      <div className="flex items-center justify-end gap-1 sm:gap-2">
+                        <div className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-red-600 px-2 py-1 text-center text-[11px] font-black text-white shadow-sm sm:text-xs">
+                          🚨 SOS 尋寵地圖
                         </div>
-                        <div className="inline-flex items-center justify-center rounded-full bg-slate-100 px-2.5 py-1 text-center text-xs font-black text-slate-700 ring-1 ring-slate-200 shadow-sm">
-                          <span className="sm:hidden">🐾 指南</span>
-                          <span className="hidden sm:inline">🐾 香港寵物指南</span>
+                        <div className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-slate-100 px-2 py-1 text-center text-[11px] font-black text-slate-700 ring-1 ring-slate-200 shadow-sm sm:text-xs">
+                          🐾 香港寵物指南
                         </div>
                         <div className="h-9 w-9 rounded-2xl bg-slate-100 ring-1 ring-slate-200" />
                         <div className="h-9 w-9 rounded-2xl bg-slate-900 ring-1 ring-slate-900/10" />
