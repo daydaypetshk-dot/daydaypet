@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { DivIcon } from "leaflet";
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
@@ -1116,6 +1117,7 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
   const [reportSuccessOpen, setReportSuccessOpen] = useState(false);
+  const [bodyMounted, setBodyMounted] = useState(false);
   const [reportForm, setReportForm] = useState<CitizenReportForm>(defaultCitizenReportForm);
   const [petBreedOptions, setPetBreedOptions] = useState<PetBreedOption[]>([]);
   const [guideCategories, setGuideCategories] = useState<GuideCategoryOption[]>([]);
@@ -1785,6 +1787,7 @@ export default function Home() {
 
   useEffect(() => {
     setIsMounted(true);
+    setBodyMounted(typeof window !== "undefined" && !!document.body);
   }, []);
 
   useEffect(() => {
@@ -4888,506 +4891,511 @@ export default function Home() {
         </div>
       </div>
 
-      {reportModalOpen ? (
-        <div
-          className="fixed inset-0 z-[100] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
-          onClick={closeReportModal}
-        >
-          <div
-            className="relative bg-white rounded-2xl max-h-[85vh] w-full max-w-2xl overflow-y-auto shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="sticky top-0 bg-white z-20 px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-              <div>
-                <h3 className="text-xl font-bold text-gray-900">市民報料</h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  免登入可先填表，表單末尾一鍵綁定會員並送審
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={closeReportModal}
-                className="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full cursor-pointer transition-colors"
-                title="關閉"
-                aria-label="關閉"
+      {bodyMounted && reportModalOpen
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 overflow-y-auto"
+              onClick={closeReportModal}
+            >
+              <div
+                className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl overflow-hidden my-auto max-h-[85vh] flex flex-col z-[10000]"
+                onClick={(e) => e.stopPropagation()}
               >
-                <span className="text-xl font-bold leading-none">✕</span>
-              </button>
-            </div>
-
-            <div className="px-6 pb-6">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-5">
-                <label className="block">
-                  <div className="text-sm font-bold text-slate-700">案件類型</div>
-                  <select
-                    value={reportForm.caseType}
-                    onChange={(e) =>
-                      (() => {
-                        const nextCaseType =
-                          e.target.value === "found_rescued"
-                            ? "found_rescued"
-                            : e.target.value === "spotted_unrescued"
-                              ? "spotted_unrescued"
-                              : "lost";
-                        updateReportForm("caseType", nextCaseType);
-                        updateReportForm("sourceType", syncIdentityWithCaseType(reportForm.sourceType, nextCaseType));
-                      })()
-                    }
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
-                  >
-                    <option value="lost">走失</option>
-                    <option value="spotted_unrescued">發現（未救起）</option>
-                    <option value="found_rescued">發現（救起）</option>
-                  </select>
-                </label>
-
-                <label className="block">
-                  <div className="text-sm font-bold text-slate-700">寵物大類</div>
-                  <select
-                    value={reportForm.petType}
-                    onChange={(e) => {
-                      const nextPetType =
-                        e.target.value === "dog"
-                          ? "dog"
-                          : e.target.value === "bird"
-                            ? "bird"
-                            : e.target.value === "other"
-                              ? "other"
-                              : "cat";
-                      setReportForm((prev) => ({
-                        ...prev,
-                        petType: nextPetType,
-                        breed:
-                          nextPetType === prev.petType
-                            ? prev.breed
-                            : nextPetType === "other"
-                              ? "其他 / 不確定品種"
-                              : "",
-                      }));
-                    }}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
-                  >
-                    <option value="cat">貓</option>
-                    <option value="dog">狗</option>
-                    <option value="bird">雀鳥</option>
-                    <option value="other">其他</option>
-                  </select>
-                </label>
-
-                <label className="block">
-                  <div className="text-sm font-bold text-slate-700">詳細品種</div>
-                  <select
-                    value={reportForm.breed}
-                    onChange={(e) => updateReportForm("breed", e.target.value)}
-                    disabled={reportForm.petType !== "cat" && reportForm.petType !== "dog" && reportForm.petType !== "bird"}
-                    className={[
-                      "mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900",
-                      reportForm.petType !== "cat" && reportForm.petType !== "dog" && reportForm.petType !== "bird"
-                        ? "cursor-not-allowed opacity-60"
-                        : "",
-                    ].join(" ")}
-                  >
-                    {reportForm.petType !== "cat" && reportForm.petType !== "dog" && reportForm.petType !== "bird" ? (
-                      <option value="其他 / 不確定品種">其他 / 不確定品種</option>
-                    ) : (
-                      <option value="">
-                        {isLoadingPetBreeds ? "載入品種中..." : "請選擇詳細品種"}
-                      </option>
-                    )}
-                    {filteredPetBreedOptions.map((breed) => (
-                      <option key={breed.id} value={breed.breed_name}>
-                        {breed.breed_name}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="mt-1 text-xs font-semibold text-slate-500">
-                    {reportForm.petType === "cat" || reportForm.petType === "dog" || reportForm.petType === "bird"
-                      ? "如無法判斷，請選擇「其他 / 不確定品種」。"
-                      : "其他類型會先以「其他 / 不確定品種」提交，後台可再補充。"}
+                <div className="px-6 py-4 bg-white border-b border-gray-100 flex items-center justify-between shrink-0">
+                  <div>
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-900">🚨 市民報料尋寵</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      免登入可先填表，表單末尾一鍵綁定會員並送審
+                    </p>
                   </div>
-                </label>
+                  <button
+                    type="button"
+                    onClick={closeReportModal}
+                    className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-gray-600 hover:text-gray-900 transition-colors cursor-pointer"
+                    title="關閉"
+                    aria-label="關閉"
+                  >
+                    <span className="text-xl font-bold leading-none">✕</span>
+                  </button>
+                </div>
 
-                <label className="block">
-                  <div className="text-sm font-bold text-slate-700">寵物名字</div>
-                  <input
-                    value={reportForm.petName}
-                    onChange={(e) => updateReportForm("petName", e.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
-                    placeholder="豆豉 / 目擊小花貓"
-                  />
-                </label>
+                <div className="overflow-y-auto p-6 space-y-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <label className="block">
+                      <div className="text-sm font-bold text-slate-700">案件類型</div>
+                      <select
+                        value={reportForm.caseType}
+                        onChange={(e) =>
+                          (() => {
+                            const nextCaseType =
+                              e.target.value === "found_rescued"
+                                ? "found_rescued"
+                                : e.target.value === "spotted_unrescued"
+                                  ? "spotted_unrescued"
+                                  : "lost";
+                            updateReportForm("caseType", nextCaseType);
+                            updateReportForm("sourceType", syncIdentityWithCaseType(reportForm.sourceType, nextCaseType));
+                          })()
+                        }
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                      >
+                        <option value="lost">走失</option>
+                        <option value="spotted_unrescued">發現（未救起）</option>
+                        <option value="found_rescued">發現（救起）</option>
+                      </select>
+                    </label>
 
-                <label className="block">
-                  <div className="text-sm font-bold text-slate-700">聯絡電話</div>
-                  <input
-                    value={reportForm.phone}
-                    onChange={(e) => updateReportForm("phone", e.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
-                    placeholder="9123 4567"
-                  />
-                  <div className="mt-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
-                    <input
-                      type="checkbox"
-                      id="formPrivacyToggle"
-                      checked={reportForm.enablePrivacy}
-                      onChange={(e) => updateReportForm("enablePrivacy", e.target.checked)}
-                      className="h-4 w-4 rounded text-blue-600"
-                    />
-                    <label htmlFor="formPrivacyToggle" className="cursor-pointer text-sm font-medium text-blue-800">
-                      🛡️ 啟用防騙隱私保護 (隱藏電話號碼，聯絡時跳出防騙倒數彈窗)
+                    <label className="block">
+                      <div className="text-sm font-bold text-slate-700">寵物大類</div>
+                      <select
+                        value={reportForm.petType}
+                        onChange={(e) => {
+                          const nextPetType =
+                            e.target.value === "dog"
+                              ? "dog"
+                              : e.target.value === "bird"
+                                ? "bird"
+                                : e.target.value === "other"
+                                  ? "other"
+                                  : "cat";
+                          setReportForm((prev) => ({
+                            ...prev,
+                            petType: nextPetType,
+                            breed:
+                              nextPetType === prev.petType
+                                ? prev.breed
+                                : nextPetType === "other"
+                                  ? "其他 / 不確定品種"
+                                  : "",
+                          }));
+                        }}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                      >
+                        <option value="cat">貓</option>
+                        <option value="dog">狗</option>
+                        <option value="bird">雀鳥</option>
+                        <option value="other">其他</option>
+                      </select>
+                    </label>
+
+                    <label className="block">
+                      <div className="text-sm font-bold text-slate-700">詳細品種</div>
+                      <select
+                        value={reportForm.breed}
+                        onChange={(e) => updateReportForm("breed", e.target.value)}
+                        disabled={reportForm.petType !== "cat" && reportForm.petType !== "dog" && reportForm.petType !== "bird"}
+                        className={[
+                          "mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900",
+                          reportForm.petType !== "cat" && reportForm.petType !== "dog" && reportForm.petType !== "bird"
+                            ? "cursor-not-allowed opacity-60"
+                            : "",
+                        ].join(" ")}
+                      >
+                        {reportForm.petType !== "cat" && reportForm.petType !== "dog" && reportForm.petType !== "bird" ? (
+                          <option value="其他 / 不確定品種">其他 / 不確定品種</option>
+                        ) : (
+                          <option value="">
+                            {isLoadingPetBreeds ? "載入品種中..." : "請選擇詳細品種"}
+                          </option>
+                        )}
+                        {filteredPetBreedOptions.map((breed) => (
+                          <option key={breed.id} value={breed.breed_name}>
+                            {breed.breed_name}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="mt-1 text-xs font-semibold text-slate-500">
+                        {reportForm.petType === "cat" || reportForm.petType === "dog" || reportForm.petType === "bird"
+                          ? "如無法判斷，請選擇「其他 / 不確定品種」。"
+                          : "其他類型會先以「其他 / 不確定品種」提交，後台可再補充。"}
+                      </div>
+                    </label>
+
+                    <label className="block">
+                      <div className="text-sm font-bold text-slate-700">寵物名字</div>
+                      <input
+                        value={reportForm.petName}
+                        onChange={(e) => updateReportForm("petName", e.target.value)}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                        placeholder="豆豉 / 目擊小花貓"
+                      />
+                    </label>
+
+                    <label className="block">
+                      <div className="text-sm font-bold text-slate-700">聯絡電話</div>
+                      <input
+                        value={reportForm.phone}
+                        onChange={(e) => updateReportForm("phone", e.target.value)}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                        placeholder="9123 4567"
+                      />
+                      <div className="mt-3 flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
+                        <input
+                          type="checkbox"
+                          id="formPrivacyToggle"
+                          checked={reportForm.enablePrivacy}
+                          onChange={(e) => updateReportForm("enablePrivacy", e.target.checked)}
+                          className="h-4 w-4 rounded text-blue-600"
+                        />
+                        <label htmlFor="formPrivacyToggle" className="cursor-pointer text-sm font-medium text-blue-800">
+                          🛡️ 啟用防騙隱私保護 (隱藏電話號碼，聯絡時跳出防騙倒數彈窗)
+                        </label>
+                      </div>
+                    </label>
+
+                    <label className="block">
+                      <div className="text-sm font-bold text-slate-700">時間</div>
+                      <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                        <input
+                          type="date"
+                          value={reportTimeParts.date}
+                          onChange={(e) => {
+                            const next = buildIsoFromLocalParts(e.target.value, reportTimeParts.hour, reportTimeParts.minute);
+                            updateReportForm("lostTime", next);
+                          }}
+                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                        />
+                        <select
+                          value={reportTimeParts.hour}
+                          onChange={(e) => {
+                            const next = buildIsoFromLocalParts(reportTimeParts.date, e.target.value, reportTimeParts.minute);
+                            updateReportForm("lostTime", next);
+                          }}
+                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                        >
+                          {Array.from({ length: 24 }).map((_, i) => {
+                            const v = pad2(i);
+                            return (
+                              <option key={v} value={v}>
+                                {v} 時
+                              </option>
+                            );
+                          })}
+                        </select>
+                        <select
+                          value={reportTimeParts.minute}
+                          onChange={(e) => {
+                            const next = buildIsoFromLocalParts(reportTimeParts.date, reportTimeParts.hour, e.target.value);
+                            updateReportForm("lostTime", next);
+                          }}
+                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                        >
+                          {Array.from({ length: 60 }).map((_, i) => {
+                            const v = pad2(i);
+                            return (
+                              <option key={v} value={v}>
+                                {v} 分
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
                     </label>
                   </div>
-                </label>
 
-                <label className="block">
-                  <div className="text-sm font-bold text-slate-700">時間</div>
-                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <label className="block">
+                    <div className="text-sm font-bold text-slate-700">地點文字描述</div>
                     <input
-                      type="date"
-                      value={reportTimeParts.date}
-                      onChange={(e) => {
-                        const next = buildIsoFromLocalParts(e.target.value, reportTimeParts.hour, reportTimeParts.minute);
-                        updateReportForm("lostTime", next);
-                      }}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                      value={reportForm.location}
+                      onChange={(e) => updateReportForm("location", e.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                      placeholder="大角咀埃華街附近"
                     />
-                    <select
-                      value={reportTimeParts.hour}
-                      onChange={(e) => {
-                        const next = buildIsoFromLocalParts(reportTimeParts.date, e.target.value, reportTimeParts.minute);
-                        updateReportForm("lostTime", next);
+                  </label>
+
+                  <label className="block">
+                    <div className="text-sm font-bold text-slate-700">毛孩特徵</div>
+                    <textarea
+                      value={reportForm.features}
+                      onChange={(e) => updateReportForm("features", e.target.value)}
+                      className="mt-2 min-h-[100px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                      placeholder="左耳已剪、親人、有晶片。"
+                    />
+                  </label>
+
+                  <div>
+                    <div className="text-sm font-bold text-slate-700">上傳毛孩照片</div>
+                    <label
+                      htmlFor="citizen-pet-image"
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        void handleCitizenImageFile(e.dataTransfer.files?.[0]);
                       }}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                      className="mt-2 flex min-h-[148px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center"
                     >
-                      {Array.from({ length: 24 }).map((_, i) => {
-                        const v = pad2(i);
-                        return (
-                          <option key={v} value={v}>
-                            {v} 時
-                          </option>
-                        );
-                      })}
-                    </select>
-                    <select
-                      value={reportTimeParts.minute}
-                      onChange={(e) => {
-                        const next = buildIsoFromLocalParts(reportTimeParts.date, reportTimeParts.hour, e.target.value);
-                        updateReportForm("lostTime", next);
-                      }}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
-                    >
-                      {Array.from({ length: 60 }).map((_, i) => {
-                        const v = pad2(i);
-                        return (
-                          <option key={v} value={v}>
-                            {v} 分
-                          </option>
-                        );
-                      })}
-                    </select>
+                      {reportForm.imageUrl ? (
+                        <div className="w-full">
+                          <div className="relative overflow-hidden rounded-2xl shadow-md">
+                            <img
+                              src={reportForm.imageUrl}
+                              alt="預覽"
+                              className="mx-auto h-40 w-full object-cover"
+                            />
+                            <PhotoWatermarkOverlay />
+                          </div>
+                          <div className="mt-3 text-xs font-bold text-slate-600">
+                            已選取圖片，可再次點擊或拖曳覆蓋
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="text-3xl">📸</div>
+                          <div className="mt-2 text-sm font-black text-slate-900">
+                            點擊或拖曳圖片到這裡上傳
+                          </div>
+                          <div className="mt-1 text-xs font-semibold text-slate-500">
+                            支援 JPG / PNG / WEBP，大小上限 5MB
+                          </div>
+                        </>
+                      )}
+                    </label>
+                    <input
+                      id="citizen-pet-image"
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(e) => void handleCitizenImageFile(e.target.files?.[0])}
+                    />
                   </div>
-                </label>
-              </div>
 
-              <label className="mt-4 block">
-                <div className="text-sm font-bold text-slate-700">地點文字描述</div>
-                <input
-                  value={reportForm.location}
-                  onChange={(e) => updateReportForm("location", e.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
-                  placeholder="大角咀埃華街附近"
-                />
-              </label>
+                  <label className="block">
+                    <div className="text-sm font-bold text-slate-700">聯絡人身份 / 發佈方式</div>
+                    <select
+                      value={reportForm.sourceType}
+                      onChange={(e) =>
+                        (() => {
+                          const nextIdentity = normalizeContactIdentity(e.target.value, reportForm.caseType);
+                          updateReportForm("sourceType", nextIdentity);
+                          updateReportForm("caseType", getDefaultCaseTypeForIdentity(nextIdentity));
+                        })()
+                      }
+                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                    >
+                      {CONTACT_IDENTITY_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="mt-2 text-xs font-semibold text-slate-500">
+                      {getCaseIdentityCategory(reportForm.sourceType) === "seeking"
+                        ? "目前會歸類為：尋寵案件"
+                        : getCaseIdentityCategory(reportForm.sourceType) === "rescued"
+                          ? "目前會歸類為：已救起案件"
+                          : "目前會歸類為：目擊案件"}
+                    </div>
+                  </label>
 
-              <label className="mt-4 block">
-                <div className="text-sm font-bold text-slate-700">毛孩特徵</div>
-                <textarea
-                  value={reportForm.features}
-                  onChange={(e) => updateReportForm("features", e.target.value)}
-                  className="mt-2 min-h-[100px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
-                  placeholder="左耳已剪、親人、有晶片。"
-                />
-              </label>
+                  {needsSourceLink(reportForm.sourceType) ? (
+                    <label className="block">
+                      <div className="text-sm font-bold text-slate-700">社交媒體原帖連結</div>
+                      <input
+                        value={reportForm.sourceLink}
+                        onChange={(e) => updateReportForm("sourceLink", e.target.value)}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                        placeholder="https://www.facebook.com/... 或 https://www.threads.net/..."
+                      />
+                    </label>
+                  ) : null}
 
-              <div className="mt-4">
-                <div className="text-sm font-bold text-slate-700">上傳毛孩照片</div>
-                <label
-                  htmlFor="citizen-pet-image"
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    void handleCitizenImageFile(e.dataTransfer.files?.[0]);
-                  }}
-                  className="mt-2 flex min-h-[148px] cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center"
-                >
-                  {reportForm.imageUrl ? (
-                    <div className="w-full">
-                      <div className="relative overflow-hidden rounded-2xl shadow-md">
-                        <img
-                          src={reportForm.imageUrl}
-                          alt="預覽"
-                          className="mx-auto h-40 w-full object-cover"
-                        />
-                        <PhotoWatermarkOverlay />
-                      </div>
-                      <div className="mt-3 text-xs font-bold text-slate-600">
-                        已選取圖片，可再次點擊或拖曳覆蓋
+                  {!isLoggedIn ? (
+                    <label className="block">
+                      <div className="text-sm font-bold text-slate-700">傳送安全登入連結到電郵</div>
+                      <input
+                        value={reportForm.email}
+                        onChange={(e) => updateReportForm("email", e.target.value)}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                        placeholder="傳送安全登入連結到電郵"
+                      />
+                      <span className="mt-1.5 block text-xs leading-relaxed text-gray-500">
+                        * 為了保障您的帳戶安全，系統會向該電郵發送一條一次性的特殊確認連結。必須由您本人打開電郵收件箱並點擊連結才能成功登入，其他人絕對無法冒名登入。
+                      </span>
+                    </label>
+                  ) : null}
+
+                  <div className="rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
+                    <div className="text-sm font-black text-slate-900">座標與定位</div>
+                    <div className="mt-2 text-sm font-semibold text-slate-600">
+                      {Number.isFinite(reportForm.latitude) && Number.isFinite(reportForm.longitude)
+                        ? `已選座標：${reportForm.latitude?.toFixed(5)}, ${reportForm.longitude?.toFixed(5)}`
+                        : reportForm.manualAddress.trim()
+                          ? "目前未有座標，將以手動地址作後備提交"
+                          : "尚未選擇座標"}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsPickLocationMode(true);
+                          setReportModalOpen(false);
+                        }}
+                        className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-black text-white"
+                      >
+                        🗺️ 地圖點擊選點
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleUseCurrentLocation}
+                        className="rounded-2xl bg-sky-600 px-4 py-3 text-sm font-black text-white"
+                      >
+                        📍 獲取目前手機定位
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl bg-white p-3 ring-1 ring-slate-200">
+                    <div className="text-sm font-bold text-slate-700">手動地址 / 地址搜尋</div>
+                    <div className="relative mt-2">
+                      <input
+                        value={reportForm.manualAddress}
+                        onChange={(e) => updateReportForm("manualAddress", e.target.value)}
+                        onFocus={() => {
+                          if (manualAddressSuggestions.length > 0) setManualAddressDropdownOpen(true);
+                        }}
+                        onBlur={() => {
+                          window.setTimeout(() => setManualAddressDropdownOpen(false), 120);
+                        }}
+                        onKeyDown={(e) => {
+                          if (!manualAddressDropdownOpen || manualAddressSuggestions.length === 0) return;
+                          if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            setManualAddressActiveIndex((prev) =>
+                              prev < manualAddressSuggestions.length - 1 ? prev + 1 : prev,
+                            );
+                          }
+                          if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            setManualAddressActiveIndex((prev) => (prev > 0 ? prev - 1 : 0));
+                          }
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const idx = manualAddressActiveIndex >= 0 ? manualAddressActiveIndex : 0;
+                            const picked = manualAddressSuggestions[idx];
+                            if (picked) selectManualAddressSuggestion(picked);
+                          }
+                          if (e.key === "Escape") {
+                            setManualAddressDropdownOpen(false);
+                          }
+                        }}
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
+                        placeholder="找不到座標？請輸入具體地址（例如：尖沙咀海港城正門）"
+                      />
+                      {manualAddressDropdownOpen ? (
+                        <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-[9999] overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
+                          {manualAddressSuggestions.map((s, idx) => (
+                            <button
+                              key={s.id}
+                              type="button"
+                              onMouseDown={(ev) => ev.preventDefault()}
+                              onClick={() => selectManualAddressSuggestion(s)}
+                              className={[
+                                "w-full px-4 py-3 text-left",
+                                idx === manualAddressActiveIndex
+                                  ? "bg-red-50"
+                                  : "bg-white hover:bg-slate-50",
+                              ].join(" ")}
+                            >
+                              <div className="text-sm font-black text-slate-900">{s.label}</div>
+                              <div className="mt-1 text-xs font-semibold text-slate-500">
+                                {s.lat.toFixed(5)}, {s.lng.toFixed(5)}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleManualAddressSearch()}
+                        disabled={isSearchingManualAddress}
+                        className={[
+                          "rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-white",
+                          isSearchingManualAddress ? "opacity-70" : "",
+                        ].join(" ")}
+                      >
+                        {isSearchingManualAddress ? "搜尋中…" : "搜尋 / 確認"}
+                      </button>
+                      <div className="flex items-center text-xs font-semibold leading-relaxed text-slate-500">
+                        搜尋成功會自動帶入經緯度；找不到位置也會保留此地址文字，仍可提交。
                       </div>
                     </div>
-                  ) : (
-                    <>
-                      <div className="text-3xl">📸</div>
-                      <div className="mt-2 text-sm font-black text-slate-900">
-                        點擊或拖曳圖片到這裡上傳
-                      </div>
-                      <div className="mt-1 text-xs font-semibold text-slate-500">
-                        支援 JPG / PNG / WEBP，大小上限 5MB
-                      </div>
-                    </>
-                  )}
-                </label>
-                <input
-                  id="citizen-pet-image"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={(e) => void handleCitizenImageFile(e.target.files?.[0])}
-                />
-              </div>
-
-              <label className="mt-4 block">
-                <div className="text-sm font-bold text-slate-700">聯絡人身份 / 發佈方式</div>
-                <select
-                  value={reportForm.sourceType}
-                  onChange={(e) =>
-                    (() => {
-                      const nextIdentity = normalizeContactIdentity(e.target.value, reportForm.caseType);
-                      updateReportForm("sourceType", nextIdentity);
-                      updateReportForm("caseType", getDefaultCaseTypeForIdentity(nextIdentity));
-                    })()
-                  }
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
-                >
-                  {CONTACT_IDENTITY_OPTIONS.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <div className="mt-2 text-xs font-semibold text-slate-500">
-                  {getCaseIdentityCategory(reportForm.sourceType) === "seeking"
-                    ? "目前會歸類為：尋寵案件"
-                    : getCaseIdentityCategory(reportForm.sourceType) === "rescued"
-                      ? "目前會歸類為：已救起案件"
-                      : "目前會歸類為：目擊案件"}
-                </div>
-              </label>
-
-              {needsSourceLink(reportForm.sourceType) ? (
-                <label className="mt-4 block">
-                  <div className="text-sm font-bold text-slate-700">社交媒體原帖連結</div>
-                  <input
-                    value={reportForm.sourceLink}
-                    onChange={(e) => updateReportForm("sourceLink", e.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
-                    placeholder="https://www.facebook.com/... 或 https://www.threads.net/..."
-                  />
-                </label>
-              ) : null}
-
-              {!isLoggedIn ? (
-                <label className="mt-4 block">
-                  <div className="text-sm font-bold text-slate-700">傳送安全登入連結到電郵</div>
-                  <input
-                    value={reportForm.email}
-                    onChange={(e) => updateReportForm("email", e.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
-                    placeholder="傳送安全登入連結到電郵"
-                  />
-                  <span className="mt-1.5 block text-xs leading-relaxed text-gray-500">
-                    * 為了保障您的帳戶安全，系統會向該電郵發送一條一次性的特殊確認連結。必須由您本人打開電郵收件箱並點擊連結才能成功登入，其他人絕對無法冒名登入。
-                  </span>
-                </label>
-              ) : null}
-
-              <div className="mt-4 rounded-2xl bg-slate-50 p-4 ring-1 ring-slate-200">
-                <div className="text-sm font-black text-slate-900">座標與定位</div>
-                <div className="mt-2 text-sm font-semibold text-slate-600">
-                  {Number.isFinite(reportForm.latitude) && Number.isFinite(reportForm.longitude)
-                    ? `已選座標：${reportForm.latitude?.toFixed(5)}, ${reportForm.longitude?.toFixed(5)}`
-                    : reportForm.manualAddress.trim()
-                      ? "目前未有座標，將以手動地址作後備提交"
-                      : "尚未選擇座標"}
-                </div>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsPickLocationMode(true);
-                      setReportModalOpen(false);
-                    }}
-                    className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-black text-white"
-                  >
-                    🗺️ 地圖點擊選點
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleUseCurrentLocation}
-                    className="rounded-2xl bg-sky-600 px-4 py-3 text-sm font-black text-white"
-                  >
-                    📍 獲取目前手機定位
-                  </button>
-                </div>
-                <div className="mt-4 rounded-2xl bg-white p-3 ring-1 ring-slate-200">
-                  <div className="text-sm font-bold text-slate-700">手動地址 / 地址搜尋</div>
-                  <div className="relative mt-2">
-                    <input
-                      value={reportForm.manualAddress}
-                      onChange={(e) => updateReportForm("manualAddress", e.target.value)}
-                      onFocus={() => {
-                        if (manualAddressSuggestions.length > 0) setManualAddressDropdownOpen(true);
-                      }}
-                      onBlur={() => {
-                        window.setTimeout(() => setManualAddressDropdownOpen(false), 120);
-                      }}
-                      onKeyDown={(e) => {
-                        if (!manualAddressDropdownOpen || manualAddressSuggestions.length === 0) return;
-                        if (e.key === "ArrowDown") {
-                          e.preventDefault();
-                          setManualAddressActiveIndex((prev) =>
-                            prev < manualAddressSuggestions.length - 1 ? prev + 1 : prev,
-                          );
-                        }
-                        if (e.key === "ArrowUp") {
-                          e.preventDefault();
-                          setManualAddressActiveIndex((prev) => (prev > 0 ? prev - 1 : 0));
-                        }
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          const idx = manualAddressActiveIndex >= 0 ? manualAddressActiveIndex : 0;
-                          const picked = manualAddressSuggestions[idx];
-                          if (picked) selectManualAddressSuggestion(picked);
-                        }
-                        if (e.key === "Escape") {
-                          setManualAddressDropdownOpen(false);
-                        }
-                      }}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900"
-                      placeholder="找不到座標？請輸入具體地址（例如：尖沙咀海港城正門）"
-                    />
-                    {manualAddressDropdownOpen ? (
-                      <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-[9999] overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-black/10">
-                        {manualAddressSuggestions.map((s, idx) => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onMouseDown={(ev) => ev.preventDefault()}
-                            onClick={() => selectManualAddressSuggestion(s)}
-                            className={[
-                              "w-full px-4 py-3 text-left",
-                              idx === manualAddressActiveIndex
-                                ? "bg-red-50"
-                                : "bg-white hover:bg-slate-50",
-                            ].join(" ")}
-                          >
-                            <div className="text-sm font-black text-slate-900">{s.label}</div>
-                            <div className="mt-1 text-xs font-semibold text-slate-500">
-                              {s.lat.toFixed(5)}, {s.lng.toFixed(5)}
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
                   </div>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void handleManualAddressSearch()}
-                      disabled={isSearchingManualAddress}
-                      className={[
-                        "rounded-2xl bg-amber-500 px-4 py-3 text-sm font-black text-white",
-                        isSearchingManualAddress ? "opacity-70" : "",
-                      ].join(" ")}
-                    >
-                      {isSearchingManualAddress ? "搜尋中…" : "搜尋 / 確認"}
-                    </button>
-                    <div className="flex items-center text-xs font-semibold leading-relaxed text-slate-500">
-                      搜尋成功會自動帶入經緯度；找不到位置也會保留此地址文字，仍可提交。
+
+                  <div className="border-t border-slate-200 pt-4">
+                    {isLoggedIn ? (
+                      <button
+                        type="button"
+                        onClick={handleDirectCitizenSubmit}
+                        disabled={isSubmittingReport}
+                        className={[
+                          "w-full rounded-2xl bg-red-600 px-4 py-4 text-base font-black text-white shadow-lg",
+                          isSubmittingReport ? "opacity-70" : "",
+                        ].join(" ")}
+                      >
+                        {isSubmittingReport ? "提交中…" : "確認提交報料"}
+                      </button>
+                    ) : (
+                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <button
+                          type="button"
+                          onClick={() => void persistPendingReportAndStartAuth("google")}
+                          disabled={isSubmittingReport}
+                          className={[
+                            "rounded-2xl bg-emerald-500 px-4 py-4 text-sm font-black text-white shadow-lg",
+                            isSubmittingReport ? "opacity-70" : "",
+                          ].join(" ")}
+                        >
+                          🟢 使用 Google 一鍵登入並發佈
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void persistPendingReportAndStartAuth("magic")}
+                          disabled={isSubmittingReport}
+                          className={[
+                            "rounded-2xl bg-slate-900 px-4 py-4 text-sm font-black text-white shadow-lg",
+                            isSubmittingReport ? "opacity-70" : "",
+                          ].join(" ")}
+                        >
+                          ✉️ 傳送安全登入連結到電郵並發佈
+                        </button>
+                      </div>
+                    )}
+                    <div className="mt-3 text-xs font-semibold leading-relaxed text-slate-500">
+                      所有市民報料都會先以 pending 進後台審批，核實後才會於 🚨 SOS尋寵地圖 公開上線。
                     </div>
                   </div>
                 </div>
               </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
-              <div className="mt-5 border-t border-slate-200 pt-5">
-                {isLoggedIn ? (
-                  <button
-                    type="button"
-                    onClick={handleDirectCitizenSubmit}
-                    disabled={isSubmittingReport}
-                    className={[
-                      "w-full rounded-2xl bg-red-600 px-4 py-4 text-base font-black text-white shadow-lg",
-                      isSubmittingReport ? "opacity-70" : "",
-                    ].join(" ")}
-                  >
-                    {isSubmittingReport ? "提交中…" : "確認提交報料"}
-                  </button>
-                ) : (
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                    <button
-                      type="button"
-                      onClick={() => void persistPendingReportAndStartAuth("google")}
-                      disabled={isSubmittingReport}
-                      className={[
-                        "rounded-2xl bg-emerald-500 px-4 py-4 text-sm font-black text-white shadow-lg",
-                        isSubmittingReport ? "opacity-70" : "",
-                      ].join(" ")}
-                    >
-                      🟢 使用 Google 一鍵登入並發佈
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => void persistPendingReportAndStartAuth("magic")}
-                      disabled={isSubmittingReport}
-                      className={[
-                        "rounded-2xl bg-slate-900 px-4 py-4 text-sm font-black text-white shadow-lg",
-                        isSubmittingReport ? "opacity-70" : "",
-                      ].join(" ")}
-                    >
-                      ✉️ 傳送安全登入連結到電郵並發佈
-                    </button>
-                  </div>
-                )}
-                <div className="mt-3 text-xs font-semibold leading-relaxed text-slate-500">
-                  所有市民報料都會先以 pending 進後台審批，核實後才會於 🚨 SOS尋寵地圖 公開上線。
+      {bodyMounted && reportSuccessOpen
+        ? createPortal(
+            <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 overflow-y-auto">
+              <div className="relative z-[10000] w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl ring-1 ring-black/10 text-center">
+                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-amber-100 via-rose-100 to-sky-100 text-5xl shadow-lg">
+                  🐾
                 </div>
+                <div className="mt-5 text-2xl font-black text-slate-900">報料成功！已進入審核階段</div>
+                <div className="mt-3 text-sm font-semibold leading-relaxed text-slate-600">
+                  感謝您的熱心回報！為維護平台資訊準確性，管理員將於短時間內完成審核，審核通過後案件將自動顯示於地圖與最新列表中。
+                </div>
+                <button
+                  type="button"
+                  onClick={closeReportSuccess}
+                  className="mt-7 w-full rounded-2xl bg-red-600 px-4 py-3.5 text-base font-black text-white shadow-lg transition hover:brightness-105 active:scale-[0.99]"
+                >
+                  好的，我知道了
+                </button>
               </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {reportSuccessOpen ? (
-        <div className="fixed inset-0 z-[1350] bg-black/55 backdrop-blur-sm">
-          <div className="flex min-h-full items-center justify-center p-4 sm:p-6">
-            <div className="relative z-50 w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl ring-1 ring-black/10 text-center">
-              <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-amber-100 via-rose-100 to-sky-100 text-5xl shadow-lg">
-                🐾
-              </div>
-              <div className="mt-5 text-2xl font-black text-slate-900">報料成功！已進入審核階段</div>
-              <div className="mt-3 text-sm font-semibold leading-relaxed text-slate-600">
-                感謝您的熱心回報！為維護平台資訊準確性，管理員將於短時間內完成審核，審核通過後案件將自動顯示於地圖與最新列表中。
-              </div>
-              <button
-                type="button"
-                onClick={closeReportSuccess}
-                className="mt-7 w-full rounded-2xl bg-red-600 px-4 py-3.5 text-base font-black text-white shadow-lg transition hover:brightness-105 active:scale-[0.99]"
-              >
-                好的，我知道了
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
 
       {authModalOpen ? (
         <div className="fixed inset-0 z-[1450] flex items-center justify-center bg-black/55 px-4 backdrop-blur-sm">
