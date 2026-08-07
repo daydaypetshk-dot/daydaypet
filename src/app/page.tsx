@@ -4499,14 +4499,37 @@ export default function Home() {
                     const telHref = digits ? (digits.startsWith("852") ? `tel:+${digits}` : `tel:${digits}`) : "";
                     const hk = digits ? (digits.startsWith("852") ? digits : `852${digits}`) : "";
                     const contactTarget = getContactActionTarget(selectedPet.contactIdentityType);
-                    const msg = `你好，我在【日日寵 尋寵地圖】看到你走失/目擊毛孩【${selectedPet.title}】的個案，想了解/提供消息...`;
-                    const whatsappHref = hk ? `https://wa.me/${hk}?text=${encodeURIComponent(msg)}` : "";
-                    const sourceHref = String(selectedPet.sourceUrl || "").trim();
-                    const canOpenSourceHref = /^https?:\/\//i.test(sourceHref);
-                    const shareUrl = (() => {
+                    const originalPostUrl = String(selectedPet.sourceUrl || "").trim();
+                    const hasOriginalPostUrl = /^https?:\/\//i.test(originalPostUrl);
+                    const currentCasePageUrl = (() => {
                       const url = new URL(`/sos/${encodeURIComponent(selectedPet.id)}`, window.location.origin);
                       return url.toString();
                     })();
+                    const petTitle = String(selectedPet.title || "").trim() || "尋寵案件";
+                    const petDistrict = String(selectedPet.district || "").trim();
+                    const petLocation = String(selectedPet.locationName || "").trim();
+                    const caseTitleLine = `🐾 案件名稱：${petTitle}`;
+                    const locationLine = `📍 地區/地點：${petDistrict ? `${petDistrict} ` : ""}${petLocation}`.trimEnd();
+                    const originalPostBlock = hasOriginalPostUrl
+                      ? `\n🧾 主 post / 原貼文連結：\n${originalPostUrl}\n`
+                      : "";
+                    const msg = [
+                      "你好，我在【日日寵 DayDayPet】看到你發布的尋寵案件：",
+                      caseTitleLine,
+                      locationLine + originalPostBlock,
+                      `🌐 平台案件連結：\n${currentCasePageUrl}`,
+                      "",
+                      "想向你查詢關於這隻毛孩的詳細情況，謝謝！",
+                    ].join("\n");
+                    const encodedMessage = encodeURIComponent(msg);
+                    const whatsappHref = hk
+                      ? `https://wa.me/${hk}?text=${encodedMessage}`
+                      : encodedMessage
+                        ? `https://api.whatsapp.com/send?text=${encodedMessage}`
+                        : "";
+                    const sourceHref = String(selectedPet.sourceUrl || "").trim();
+                    const canOpenSourceHref = /^https?:\/\//i.test(sourceHref);
+                    const shareUrl = currentCasePageUrl;
                     const isPrivacyProtectionEnabled = selectedPet.enablePrivacy !== false;
                     const featureText = (() => {
                       const t = String(selectedPet.features || "").trim();
@@ -4659,16 +4682,20 @@ export default function Home() {
 
                             <button
                               type="button"
-                              disabled={!canOpenSourceHref}
                               onClick={() => {
-                                if (!canOpenSourceHref) return;
-                                window.open(sourceHref, "_blank", "noopener,noreferrer");
+                                const url = String(selectedPet.sourceUrl || "").trim();
+                                const isValid = /^https?:\/\//i.test(url);
+                                if (isValid) {
+                                  window.open(url, "_blank", "noopener,noreferrer");
+                                  return;
+                                }
+                                showToast("此案件暫無附帶第三方原貼文連結", "error");
                               }}
                               className={[
                                 "w-full rounded-2xl border px-4 py-4 text-center text-sm font-black shadow-sm",
                                 canOpenSourceHref
                                   ? "border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
-                                  : "border-slate-200 bg-slate-50 text-slate-400",
+                                  : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100",
                               ].join(" ")}
                             >
                               🧾 主 post / 原貼文連結
