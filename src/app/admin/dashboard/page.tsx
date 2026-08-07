@@ -3180,30 +3180,34 @@ export default function AdminDashboardPage() {
                 <div className="flex w-[440px] flex-col gap-5 rounded-2xl bg-slate-50 p-5 ring-1 ring-slate-200">
                   <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200">
                     <div className="px-4 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                      手機 Header · 單行精簡（h-[72px]｜左 Logo h-[52px]/sm:h-14 放大 · 右 SOS + 指南 + 通知 + 頭像）
+                      手機 Header · 雙行精緻（Logo + 頭像/通知在上，SOS + 指南按鈕居中在下）
                     </div>
-                    <div className="w-full bg-white border-b border-gray-100 flex items-center justify-between px-3 h-[72px] relative">
-                      <div className="flex items-center justify-start p-0 my-0">
-                        <div className="relative flex shrink-0 items-center justify-center overflow-visible p-0 my-0">
-                          <img
-                            src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
-                            alt="日日寵"
-                            className="h-[52px] sm:h-14 w-auto object-contain max-w-none"
-                            onError={(event) => {
-                              event.currentTarget.style.display = "none";
-                            }}
-                          />
+                    <div className="w-full bg-white border-b border-gray-100 px-3 py-2 relative flex flex-col justify-between items-center h-auto">
+                      <div className="w-full flex items-center justify-between">
+                        <div className="flex items-center justify-start p-0 my-0">
+                          <div className="relative flex shrink-0 items-center justify-center overflow-visible p-0 my-0">
+                            <img
+                              src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
+                              alt="日日寵"
+                              className="h-12 w-auto object-contain max-w-none"
+                              onError={(event) => {
+                                event.currentTarget.style.display = "none";
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <div className="h-9 w-9 rounded-2xl bg-slate-100 ring-1 ring-slate-200" />
+                          <div className="h-9 w-9 rounded-2xl bg-slate-900 ring-1 ring-slate-900/10" />
                         </div>
                       </div>
-                      <div className="flex items-center justify-end gap-1 sm:gap-2">
-                        <div className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-red-600 px-2 py-1 text-center text-[11px] font-black text-white shadow-sm sm:text-xs">
+                      <div className="w-full flex items-center justify-center gap-2 mt-2">
+                        <div className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-red-600 px-3 py-1.5 text-center text-xs font-medium text-white shadow-sm">
                           🚨 SOS 尋寵地圖
                         </div>
-                        <div className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-slate-100 px-2 py-1 text-center text-[11px] font-black text-slate-700 ring-1 ring-slate-200 shadow-sm sm:text-xs">
+                        <div className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-slate-100 px-3 py-1.5 text-center text-xs font-medium text-slate-700 ring-1 ring-slate-200 shadow-sm">
                           🐾 香港寵物指南
                         </div>
-                        <div className="h-9 w-9 rounded-2xl bg-slate-100 ring-1 ring-slate-200" />
-                        <div className="h-9 w-9 rounded-2xl bg-slate-900 ring-1 ring-slate-900/10" />
                       </div>
                     </div>
                     <div className="relative h-16 bg-gradient-to-br from-sky-100 via-emerald-50 to-amber-50" />
@@ -3213,28 +3217,42 @@ export default function AdminDashboardPage() {
                     <div className="px-6 pt-3 pb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                       桌面 Header · 單列三欄（h-28｜左 Logo md:h-28 貼滿 · 中 SOS+指南絕對居中 · 右 功能）
                     </div>
-                    <div className="w-full bg-white border-b border-gray-100 flex items-center justify-between md:px-6 relative md:h-28">
-                      <div className="flex items-center justify-start p-0 my-0">
-                        <div className="relative flex shrink-0 items-center justify-center overflow-visible p-0 my-0">
-                          <img
-                            src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
-                            alt="日日寵"
-                            className="md:h-28 w-auto object-contain max-w-none md:max-w-none"
-                            onError={(event) => {
-                              event.currentTarget.style.display = "none";
-                            }}
-                          />
+                    <div className="w-full bg-white border-b border-gray-100 px-6 py-0 relative flex flex-col md:flex-row justify-between items-center md:h-28 h-auto">
+                      <div className="w-full md:w-auto flex items-center justify-between">
+                        <div className="flex items-center justify-start p-0 my-0">
+                          <div className="relative flex shrink-0 items-center justify-center overflow-visible p-0 my-0">
+                            <img
+                              src={logoPreviewUrl || systemSettings.site_logo_url || "/logo.png"}
+                              alt="日日寵"
+                              className="h-12 w-auto object-contain max-w-none md:h-28 md:max-w-none"
+                              onError={(event) => {
+                                event.currentTarget.style.display = "none";
+                              }}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex md:hidden items-center gap-2 flex-shrink-0">
+                          <div className="h-9 w-9 rounded-2xl bg-slate-100 ring-1 ring-slate-200" />
+                          <div className="h-9 w-9 rounded-2xl bg-slate-900 ring-1 ring-slate-900/10" />
+                        </div>
+                        <div className="hidden md:flex items-center gap-2 flex-shrink-0">
+                          <div className="h-10 w-[160px] rounded-2xl bg-slate-100 px-3 ring-1 ring-slate-200" />
+                          <div className="h-10 w-[120px] rounded-2xl bg-slate-100 px-2.5 ring-1 ring-slate-200" />
                         </div>
                       </div>
-                      <div className="hidden md:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 items-center gap-3 z-10">
-                        <div className="grid grid-cols-2 rounded-2xl bg-slate-100 p-1">
+                      <div className="w-full md:w-auto flex items-center justify-center gap-2 mt-2 md:mt-0 md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 z-10">
+                        <div className="flex md:hidden items-center gap-2">
+                          <div className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-red-600 px-3 py-1.5 text-center text-xs font-medium text-white shadow-sm">
+                            🚨 SOS 尋寵地圖
+                          </div>
+                          <div className="inline-flex items-center justify-center whitespace-nowrap rounded-full bg-slate-100 px-3 py-1.5 text-center text-xs font-medium text-slate-700 ring-1 ring-slate-200 shadow-sm">
+                            🐾 香港寵物指南
+                          </div>
+                        </div>
+                        <div className="hidden md:grid grid-cols-2 rounded-2xl bg-slate-100 p-1">
                           <div className="rounded-2xl bg-red-600 px-4 py-2.5 text-center text-sm font-black text-white shadow">🚨 SOS 尋寵地圖</div>
                           <div className="rounded-2xl px-4 py-2.5 text-center text-sm font-black text-slate-700">🐾 香港寵物指南</div>
                         </div>
-                      </div>
-                      <div className="flex items-center justify-end gap-3">
-                        <div className="h-10 w-[160px] rounded-2xl bg-slate-100 px-3 ring-1 ring-slate-200" />
-                        <div className="h-10 w-[120px] rounded-2xl bg-slate-100 px-2.5 ring-1 ring-slate-200" />
                       </div>
                     </div>
                     <div className="relative h-24 bg-gradient-to-br from-sky-100 via-emerald-50 to-amber-50" />
@@ -3242,8 +3260,8 @@ export default function AdminDashboardPage() {
 
                   <div className="text-[11px] font-semibold text-slate-500">
                     {(logoPreviewUrl || systemSettings.site_logo_url)
-                      ? "手機：h-[72px] + Logo h-[52px]/sm:h-14 放大（SOS+指南+通知+頭像單行緊湊）｜桌面：h-28 + md:h-28 Logo 貼滿 + SOS/指南 absolute 正中"
-                      : "手機：h-[72px] + Logo h-[52px]/sm:h-14 放大（SOS+指南+通知+頭像單行緊湊）｜桌面：h-28 + md:h-28 Logo 貼滿 + SOS/指南 absolute 正中"}
+                      ? "手機：雙行精緻（Row1 Logo h-12 + 頭像/通知兩端對齊；Row2 SOS+指南 pill 按鈕居中）｜桌面：md:h-28 單行大氣 + md:h-28 Logo 貼滿 + SOS/指南 absolute 正中"
+                      : "手機：雙行精緻（Row1 Logo h-12 + 頭像/通知兩端對齊；Row2 SOS+指南 pill 按鈕居中）｜桌面：md:h-28 單行大氣 + md:h-28 Logo 貼滿 + SOS/指南 absolute 正中"}
                   </div>
                 </div>
               </div>
