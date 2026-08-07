@@ -62,18 +62,21 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     "[admin/pets/:id] lookup",
   );
   if (existingError) {
+    console.error("[admin/pets/:id] lookup error:", existingError);
     return NextResponse.json({ error: existingError.message }, { status: 500 });
   }
   if (!existing) {
     return NextResponse.json({ error: "Pet not found" }, { status: 404 });
   }
 
+  console.log("[admin/pets/:id] update payload:", { petId, body, actorUserId: guard.user.id });
   const { data: updated, error: updateError } = await withTimeout(
     admin.from("pets").update(body).eq("id", petId).select("*").single(),
     SUPABASE_QUERY_TIMEOUT_MS,
     "[admin/pets/:id] update",
   );
   if (updateError) {
+    console.error("[admin/pets/:id] update error:", updateError);
     return NextResponse.json({ error: updateError.message }, { status: 400 });
   }
 
@@ -116,6 +119,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
         }).catch(() => {});
       }
     } catch (error) {
+      console.error("[admin/pets/:id] post-approval notify error:", error);
       try {
         await createNotificationDispatchLog({
           petId: updated.id,
@@ -135,4 +139,28 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 
   return NextResponse.json({ pet: updated });
+}
+
+export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const guard = await assertAdminServer();
+  if (!guard.ok) return NextResponse.json({ error: guard.error }, { status: guard.status });
+
+  const { id } = await ctx.params;
+  const petId = String(id || "").trim();
+  if (!petId) {
+    return NextResponse.json({ error: "Missing pet id" }, { status: 400 });
+  }
+
+  const admin = supabaseAdmin();
+  const { error } = await withTimeout(
+    admin.from("pets").delete().eq("id", petId),
+    SUPABASE_QUERY_TIMEOUT_MS,
+    "[admin/pets/:id] delete",
+  );
+  if (error) {
+    console.error("[admin/pets/:id] delete error:", error);
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  return NextResponse.json({ ok: true });
 }

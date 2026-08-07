@@ -2425,11 +2425,18 @@ export default function AdminDashboardPage() {
     const ok = confirm("確定刪除？");
     if (!ok) return;
     try {
-      const { error } = await supabase.from("pets").delete().eq("id", id);
-      if (error) throw error;
+      const res = await fetch(`/api/admin/pets/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = (await res.json().catch(() => ({}))) as { error?: string };
+      if (!res.ok) {
+        throw new Error(data.error || "刪除失敗");
+      }
       await refreshAllBoards(tab);
       showToast("🗑️ 已刪除案件", "success");
     } catch (err) {
+      console.error("Delete pet error:", err);
       const msg = err instanceof Error && err.message ? err.message : "刪除失敗";
       showToast(msg);
     }
@@ -2474,8 +2481,11 @@ export default function AdminDashboardPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ kind: "NEW_CASE", petId: pet.id }),
         });
-      } catch {}
+      } catch (pushErr) {
+        console.warn("Push trigger skipped after approve:", pushErr);
+      }
     } catch (err) {
+      console.error("Approve error:", err);
       const msg = err instanceof Error && err.message ? err.message : "更新失敗";
       showToast(msg);
     }
@@ -2770,9 +2780,12 @@ export default function AdminDashboardPage() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ kind: "NEW_CASE", petId: editingPet.id }),
           });
-        } catch {}
+        } catch (pushErr) {
+          console.warn("Push trigger skipped after save+approve:", pushErr);
+        }
       }
     } catch (err) {
+      console.error("Edit pet save error:", err);
       const msg = err instanceof Error && err.message ? err.message : "儲存修改失敗";
       showToast(msg);
     } finally {
