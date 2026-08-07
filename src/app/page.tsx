@@ -4495,9 +4495,23 @@ export default function Home() {
                 <div className="px-4 pb-6 md:px-6">
                   {(() => {
                     const raw = String(selectedPet.phone || "").trim();
-                    const digits = raw.replace(/\D/g, "");
-                    const telHref = digits ? (digits.startsWith("852") ? `tel:+${digits}` : `tel:${digits}`) : "";
-                    const hk = digits ? (digits.startsWith("852") ? digits : `852${digits}`) : "";
+                    const cleanPhone = raw.replace(/[\s\-+()]/g, "");
+                    const digits = cleanPhone.replace(/\D/g, "");
+                    const telHref = digits
+                      ? digits.startsWith("852")
+                        ? `tel:+${digits}`
+                        : `tel:${digits}`
+                      : "";
+                    let formattedPhone = "";
+                    if (digits) {
+                      if (digits.startsWith("852")) {
+                        formattedPhone = digits;
+                      } else if (digits.length === 8) {
+                        formattedPhone = `852${digits}`;
+                      } else {
+                        formattedPhone = digits;
+                      }
+                    }
                     const contactTarget = getContactActionTarget(selectedPet.contactIdentityType);
                     const originalPostUrl = String(selectedPet.sourceUrl || "").trim();
                     const hasOriginalPostUrl = /^https?:\/\//i.test(originalPostUrl);
@@ -4522,11 +4536,9 @@ export default function Home() {
                       "想向你查詢關於這隻毛孩的詳細情況，謝謝！",
                     ].join("\n");
                     const encodedMessage = encodeURIComponent(msg);
-                    const whatsappHref = hk
-                      ? `https://wa.me/${hk}?text=${encodedMessage}`
-                      : encodedMessage
-                        ? `https://api.whatsapp.com/send?text=${encodedMessage}`
-                        : "";
+                    const whatsappHref = formattedPhone
+                      ? `https://wa.me/${formattedPhone}?text=${encodedMessage}`
+                      : "";
                     const sourceHref = String(selectedPet.sourceUrl || "").trim();
                     const canOpenSourceHref = /^https?:\/\//i.test(sourceHref);
                     const shareUrl = currentCasePageUrl;
@@ -4606,7 +4618,10 @@ export default function Home() {
                               aria-disabled={!whatsappHref}
                               onClick={(e) => {
                                 e.preventDefault();
-                                if (!whatsappHref) return;
+                                if (!whatsappHref) {
+                                  showToast("此案件貼主未提供 WhatsApp 聯絡電話，請使用其他方式聯絡。", "error");
+                                  return;
+                                }
                                 if (isPrivacyProtectionEnabled) {
                                   openScamWarningModal(whatsappHref, "whatsapp");
                                   return;
